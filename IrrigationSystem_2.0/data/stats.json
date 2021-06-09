@@ -1,0 +1,37 @@
+{
+	"controllerID" : "001",
+	"boosterLevel" : "%BOOST_LEVEL%",
+	"status" : "%CONTROLLER_STATUS%",		// idle, starting, running, stopping
+	"state" : "%CONTROLLER_STATE%",			// enable, disable
+	"activezone" : %ACTIVE_ZONE%,
+	"zones" : {
+		"1" : {
+			"id" : 1,
+			"name" : "%ZONE_1_NAME%",
+			"status" : "%ZONE_1_STATUS%",		// idle, starting, running, stopping
+			"state" : "%ZONE_1_STATE%", 		// enable, disable
+			"flowrate_1min" : %ZONE_1_FLOW_LAST_MIN%
+		},
+		"2" : {
+			"id" : 2,
+			"name" : "%ZONE_2_NAME%",
+			"status" : "%ZONE_2_STATUS%",		// idle, starting, running, stopping
+			"state" : "%ZONE_2_STATE%", 		// enable, disable
+			"flowrate_1min" : %ZONE_2_FLOW_LAST_MIN%
+		},
+		"3" : {
+			"id" : 3,
+			"name" : "%ZONE_3_NAME%",
+			"status" : "%ZONE_3_STATUS%",		// idle, starting, running, stopping
+			"state" : "%ZONE_3_STATE%", 		// enable, disable
+			"flowrate_1min" : %ZONE_3_FLOW_LAST_MIN%
+		},
+		"4" : {
+			"id" : 4,
+			"name" : "%ZONE_4_NAME%",
+			"status" : "%ZONE_4_STATUS%",		// idle, starting, running, stopping
+			"state" : "%ZONE_4_STATE%", 		// enable, disable
+			"flowrate_1min" : %ZONE_4_FLOW_LAST_MIN%
+		}
+	}
+}
