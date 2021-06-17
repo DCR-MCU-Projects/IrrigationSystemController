@@ -1,0 +1,123 @@
+* {
+	/* ---------------------------------------------------------- Bell Theme Colors ---------------------------------------------------------- */
+		--BELL-BLUE: 			#00549a;		/* Couleur bleu standard de Bell */
+
+		--BELL-BLACK: 			#212121;		/* Noir, coeur du texte */
+			
+		--BELL-SILVER: 			#E2E2E2;		/* Couleur secondaire pour graphiques et fond accentué pour tableaux */
+		--BELL-GRAY: 			#999999;		/* Couleur secondaire pour graphiques */
+		--BELL-DARKGRAY: 		#666666;		/* Couleur secondaire pour graphiques et textes accentués dans les communications d’entreprise */
+			
+		--BELL-LIGHTBLUE: 		#0077BF;		/* Texte hyperlien visité */
+		--BELL-DARKBLUE:		#00446E;		/* Texte hyperlien */
+		
+		--BELL-SPECIAL-GRAY:	#2D2E33;		/* Gris menu bell.ca */
+		--BELL-SPECIAL-LGRAY:	#BABEC2;		/* Gris text sur menu bell.ca */
+	/* ---------------------------------------------------------- Bell Theme Colors ---------------------------------------------------------- */	
+	
+		--BELL-DISABLED-ITEM:	#EEE;
+	
+		--COM-BOX-WARNING:		khaki;
+		--COM-TXT-WARNING:		black;
+		--COM-BOX-CRITICAL:		lightcoral;
+		--COM-TXT-CRITICAL:		#333;
+		--COM-BOX-OK:			lightgreen;
+		--COM-TXT-OK:			black;
+		
+}
+
+* {
+	font-family: Helvetica,Arial,sans-serif;
+}
+
+.btn-bell { background-color: var(--BELL-BLUE); color: white; border-radius: 20px; }
+.bg-red {
+	background-color: var(--COM-BOX-CRITICAL) !important;
+}
+.bg-green {
+	background-color: var(--COM-BOX-OK) !important;
+}
+
+@font-face {
+  font-family: 'bell-icon';
+  src: url('resources/bell-icon.eot');
+  src: url('resources/bell-icon.ttf') format('truetype'),
+       url('resources/bell-icon.svg#bell-icon') format('svg'),
+       url('resources/bell-icon.eot?#iefix') format('embedded-opentype');
+  font-weight: normal;
+  font-style: normal;
+
+}
+
+@font-face {
+  font-family: 'bell-icon';
+  src: url('resources/bell-icon.eot');
+  src: url('resources/bell-icon.ttf') format('truetype'),
+       url('resources/bell-icon.svg#bell-icon') format('svg'),
+       url('resources/bell-icon.eot?#iefix') format('embedded-opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+    font-family: 'bell-slim';
+    src: url('resources/bellslim_regular-webfont.woff') format('woff');
+    font-weight: 200;
+    font-style: normal
+}
+
+@font-face {
+    font-family: 'bell-slim';
+    src: url('resources/bellslim_medium-webfont.woff') format('woff');
+    font-weight: normal;
+    font-style: normal
+}
+
+@font-face {
+    font-family: 'bell-slim';
+    src: url('resources/bellslim_semibold-webfont.woff') format('woff');
+    font-weight: 700;
+    font-style: normal
+}
+
+.bell-logo { padding-left: 40px; padding-top: 40px; line-height: normal; }
+.bell-logo a {
+	text-decoration: none; color: white; 
+	font-family: 'bell-icon' !important;
+	-webkit-font-smoothing: antialiased !important;
+	color: white !important;
+		font-size: 68px;
+}
+.bell-logo a:before { content: ''; }
+
+
+.dot {
+  height: 9px;
+  width: 9px;
+  background-color: #bbb;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 3px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

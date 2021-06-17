@@ -1,50 +1,99 @@
 #ifndef IRRIGATIONCONTROLLER
   #define IRRIGATIONCONTROLLER
+
+  #include <Arduino.h>
+  #include "trace.h"
   
-  #include "IrrigationZone.h"
+  enum IrrigationACTION {
+    NONE,
+    STARTZONE,
+    STOPZONE
+  };
+
+  enum IrrigationSTATUS {
+    IDLE,                                 // Controller or Zone is not used
+    STARTING,                             // Controller or Zone is in the process of initiating an anction, loading the booster, opening the valve etc
+    RUNNING,                              // Controller or Zone is actively running, meaning that water is coming out somewhere !
+    STOPPING,                             // Controller or Zone is in the process of teminating an action, loading the booster, closing the valve etc
+    BOOSTING                              // Controller is loding the booster
+  };
+
+  enum IrrigationSTATE {
+    DISABLE,                             // Controller or Zone is disable, no action will be permit
+    ENABLE                               // Controller or Zone is enable, action can be made on
+  };
+
+  class IrrigationZone {
+    public:
+      short                   id;              // Zone ID
+      short                   pin;              // GPIO where relay is hooked-up to
+      String                  name;             // Readable name of that zone.
+      IrrigationSTATUS        status;           // Status of the zone, idle, starting, running, stopping
+      IrrigationSTATE         state;            // State of the zone, enable, disable
+      double                  flow;             // Flow based on main thread delay
+
+      IrrigationZone(short zoneID, short zonePIN) {
+        id = zoneID;
+        pin = zonePIN;
+        name = "UNDEFINED";
+        state = DISABLE;
+        status = IDLE;
+
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, LOW);
+
+      };
+  };
+
+  struct IrrigationJob {
+    IrrigationACTION        action;
+    IrrigationZone*         zone;
+    long                    timeout;
+  };
   
   class IrrigationController {
 
     private:
-      IrrigationZone zoneCollection[MAX_ZONE];
+      IrrigationJob     jobPlan;
 
-      short _polarityReverserPin = -1;
-      short _relayBoosterPin = -1;
+      short             _polarityReverserPin = -1;
+      short             _relayBoosterPin = -1;
 
-      bool _controllerInUse = false;
-      bool _controllerEnable = false;
+      IrrigationSTATE   _state;
+      IrrigationSTATUS  _status;
 
-      long latestTickTime = 0;
+      IrrigationZone*   activeZone = NULL;//new IrrigationZone(-1, -1);
+
+      long              latestTickTime = 0;
+              
+      long              actionTimeout;    // Used to plan the next action when triggering a strike.
+              
+      void              reversePolarity(bool);
+              
+      void              startBooster();
+      void              stopBooster();
+              
+      void              startZoneON(IrrigationZone* zone);
+      void              startZoneOFF(IrrigationZone* zone);
+      void              stopZoneON(IrrigationZone* zone);
+      void              stopZoneOFF(IrrigationZone* zone);
 
     public:
       IrrigationController(short polarityReverserPin, short relayBoosterPin);
-      
 
-      bool loadBooster();
-      bool reversePolarity(bool);
+      void              setState(IrrigationSTATE state) { _state = state; };
+      void              setStatus(IrrigationSTATUS status) { _status = status; };
 
-      // Needed for OTA Update, ensure all valve are closed before upgrading, then initiate the controller with enable.
-      void enableController();
-      void disableController();
+      IrrigationSTATE   getState() { return _state; };
+      IrrigationSTATUS  getStatus() { return _status; };
 
-      short getBoostLevel();
+      IrrigationZone*   getActiveZone() { return activeZone; };
+      short             getBoostLevel(); // Read the boost level, usefull to see if an action can be made, which need boost.
 
-      // See if water is flowing into the controller.
-      bool isRunning();
-      
-      // See if the controller is enable
-      bool isEnable();
+      bool              startZone(IrrigationZone* zone);
+      bool              stopZone(IrrigationZone* zone);
 
-      // Manage and take action on Zones
-      bool addZone(short id, short pin);
-      bool deleteZone(short id);
-      
-      void enableZone(short id);
-      void disableZone(short id);
-      
-      bool startZone(short id);
-      bool stopZone(short id);      
-      
+      void              handleRequests();
   };
 
 #endif

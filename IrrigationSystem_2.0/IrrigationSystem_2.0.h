@@ -11,6 +11,7 @@
 #ifdef ESP8266
   
   #include <Arduino.h>
+  #include "trace.h"
   #include <ESP8266WiFi.h>
   #include <ESP8266mDNS.h>
   #include <WiFiUdp.h>
@@ -24,6 +25,7 @@
   #include <ESPAsyncWebServer.h>
   
   #include "IrrigationController.h"
+
   
   #define PIN_BOOST       D1
   #define PIN_BOOST_LEVEL A0
@@ -36,6 +38,8 @@
 
   #define PIN_FLOW_SENSOR 3
 
+  bool switchRemoteUpdate = false;
+
   void setup();
   void loop();
 
@@ -46,57 +50,9 @@
   String processor(const String& var);
   IRAM_ATTR void MeterISR();
 
-  enum STATUS {
-    IDLE = 0x0,
-    STARTING = 0x1,
-    RUNNING = 0x2,
-    STOPPING = 0x3
-  };
+  struct Config {
+    short zone_count;
 
-  enum STATE {
-    ENABLE = 0x0,
-    DISABLE = 0x1
-  };
-
-  enum ZONEID {
-    ZONE1 = 0x0,
-    ZONE2 = 0x1,
-    ZONE3 = 0x2,
-    ZONE4 = 0x3
-  };
-
-  struct Zone {
-    String name;
-    STATUS status;
-    STATE state;
-    double flowLastMin;
-  }
-
-  struct IrrigationStats {
-    double boostLevel;
-    STATUS controllerStatus;
-    STATE controllerState;
-    ZONEID activeZone;
-
-    Zone[] = zones;
-
-  };
-
-  struct IrrigationJobPayload {
-
-      bool needESPUpdate = false;
-      
-      bool needBoost = false;
-      
-      bool needTrigReverseOn = false;
-      bool needTrigReverseOff = false;
-
-      bool turnZoneOn = false;
-      bool turnZoneOff = false;
-
-      short zoneId = -1;
-      
-      short latestBoostMesurement = -1; 
   };
 
 #endif

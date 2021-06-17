@@ -11,98 +11,153 @@ IrrigationController::IrrigationController(short polarityReverserPin, short rela
   
   digitalWrite(relayBoosterPin, LOW);
   digitalWrite(polarityReverserPin, LOW);
-
 }
 
-bool IrrigationController::isEnable() {
-  return _controllerEnable;
+void IrrigationController::reversePolarity(bool state) {
+  
+  digitalWrite(IrrigationController::_polarityReverserPin, state);
 }
 
-bool IrrigationController::loadBooster() {
-  if (isEnable()) {
-    digitalWrite(_relayBoosterPin, HIGH);
-    delay(5000);
-    digitalWrite(_relayBoosterPin, LOW);
-    return true;
-  }
-  Serial.println("Boost failed");
-  return false;
+void IrrigationController::startBooster() {
+  digitalWrite(_relayBoosterPin, HIGH);
+}
+
+void IrrigationController::stopBooster() {
+  digitalWrite(_relayBoosterPin, LOW);
+}
+
+void IrrigationController::startZoneON(IrrigationZone* zone) {
+  reversePolarity(true);
+  digitalWrite(zone->pin, HIGH);
+  
+  setStatus(STARTING);
+  zone->status = STARTING;
+
+  activeZone = zone;
+  trace("Starting Zone ON");
+}
+void IrrigationController::startZoneOFF(IrrigationZone* zone) {
+  reversePolarity(false);
+  digitalWrite(zone->pin, LOW);
+  setStatus(RUNNING);
+  zone->status = RUNNING;
+  jobPlan.action = NONE;
+  trace("Starting Zone OFF");
+}
+void IrrigationController::stopZoneON(IrrigationZone* zone) {
+  digitalWrite(zone->pin, HIGH);
+  setStatus(STOPPING);
+  zone->status = STOPPING;
+  trace("Stopping Zone ON");
+}
+void IrrigationController::stopZoneOFF(IrrigationZone* zone) {
+  digitalWrite(zone->pin, LOW);
+  setStatus(IDLE);
+  zone->status = IDLE;
+  activeZone = NULL;
+  jobPlan.action = NONE;
+  trace("Stopping Zone OFF");
 }
 
 short IrrigationController::getBoostLevel() {
   return map(analogRead(A0), 0, 660, 0, 100);
 }
 
-bool IrrigationController::reversePolarity(bool state) {
-  if (isEnable() || !state) {
-    Serial.print("Test reverse on pin ");
-    Serial.print(IrrigationController::_polarityReverserPin);
-    Serial.print(" with state ");
-    Serial.print(state);
-    digitalWrite(IrrigationController::_polarityReverserPin, state);
-    return true;
+bool IrrigationController::stopZone(IrrigationZone* zone) { 
+  trace("Stop zone");
+  if ((getState() == ENABLE)) {
+    if ((zone->state == ENABLE)) {
+      jobPlan.action = STOPZONE;
+      jobPlan.zone = zone;
+      trace("Stop zone done");
+    }
   }
-  return false;
-}
-
-bool IrrigationController::addZone(short id, short pin) {
-  Serial.print("Add ZONE: ");
-  Serial.print(id);
-  Serial.print(" on PIN: ");
-  Serial.println(pin);
-
-  zoneCollection[id] = IrrigationZone(id, pin);
-    
   return true;
+}
+bool IrrigationController::startZone(IrrigationZone* zone) {
+  trace("Start zone");
+  if ((getState() == ENABLE) && (getStatus() == IDLE)) {
   
-}
-
-bool IrrigationController::deleteZone(short id) {
-  zoneCollection[id] = IrrigationZone();
+    if ((zone->state == ENABLE) && (zone->status == IDLE)) {
+  
+      jobPlan.action = STARTZONE;
+  
+      jobPlan.zone = zone;
+      trace("Start zone done");
+    }
+  
+  }
+  
   return true;
+}
+
+// This method should be called from the main thread LOOP method. It will manage all request in the pipeline.
+void IrrigationController::handleRequests() {
+
+  if (getState() == ENABLE) {
+
+    // Handle auto-boosting when needed
+    //   only if controller is not starting or stopping a zone.
+    // START AUTO-BOOST
+    if (getBoostLevel() < 90) {
+      if ((getStatus() == IDLE) || (getStatus() == RUNNING)) {
+          trace(__FILE__, INFO, "Booster is low charge, initiating load...");
+          trace(__FILE__, TRACE, "Start boost charger");
+          startBooster();
+          setStatus(BOOSTING);
+          actionTimeout = millis() + 5000;
+      }
+    } 
     
-}
-
-void IrrigationController::enableController() {
-  _controllerEnable = true;
-}
-
-void IrrigationController::disableController() {
-
-  for (int i = 0; i < MAX_ZONE; i++) {
-
-    if (zoneCollection[i].isEnable()) {
-      if (loadBooster()) {
-        if (IrrigationController::reversePolarity(true)) {
-          zoneCollection[i].strike();
-          zoneCollection[i].disable();
-        }
-        reversePolarity(false);
+    if (getStatus() == BOOSTING) {
+      if (millis() >= actionTimeout) {
+        trace(__FILE__, TRACE, "Stop boost charger");
+        stopBooster();
+        setStatus(IDLE);
+        actionTimeout = 0;
+        // if (getBoostLevel() < 90) {
+        //   setState(DISABLE);
+        //   trace(__FILE__, ERROR, "Booster tried to load, but is still low charge after 5 sec. For safty, the controller will be disable and booster will remain uncharged.");
+        // }
       }
     }
-    
+    // END AUTO-BOOST
+
+    // We have somthing to do !!
+    if (jobPlan.action != NONE) {
+
+      // Are we ready to start a NEW action ?
+      if ((getStatus() == IDLE) || (getStatus() == RUNNING)) {
+        if (jobPlan.action == STARTZONE) {
+          //setStatus(STARTING);
+          jobPlan.timeout = millis() + 2000;
+          startZoneON(jobPlan.zone);
+        }
+        else if (jobPlan.action == STOPZONE) {
+          //setStatus(STOPPING);
+          jobPlan.timeout = millis() + 2000;
+          stopZoneON(jobPlan.zone);
+        }
+      }
+
+      // If this is not a new action, we need to complete the action sequence !      
+      else if (getStatus() == STARTING) {
+        if (millis() >= jobPlan.timeout) {
+          startZoneOFF(jobPlan.zone);
+          jobPlan.timeout = 0;
+          //setStatus(IDLE);
+          jobPlan.action = NONE;
+        }
+      }
+      else if (getStatus() == STOPPING) {
+        if (millis() >= jobPlan.timeout) {
+          stopZoneOFF(jobPlan.zone);
+          jobPlan.timeout = 0;
+          //setStatus(IDLE);
+          jobPlan.action = NONE;
+        }
+      }
+    }
   }
-  
-  IrrigationController::_controllerEnable = false;
 }
 
-void IrrigationController::enableZone(short id) { 
-  zoneCollection[id].enable();
-}
-void IrrigationController::disableZone(short id) { 
-  zoneCollection[id].disable();
-}
-bool IrrigationController::stopZone(short id) { 
-  if (isEnable() && loadBooster())
-    return zoneCollection[id].strike();
-  return false;
-}
-bool IrrigationController::startZone(short id) {
-  bool t = false;
-  if (isEnable() && loadBooster()) {
-    if (reversePolarity(true))
-      t = zoneCollection[id].strike();
-    reversePolarity(false);
-  }
-  return t;  
-}
