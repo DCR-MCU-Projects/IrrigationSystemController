@@ -1,6 +1,7 @@
 [
 	{
 		"type" : "controller",
+		"version" : "%VERSION%",
 		"controllerID" : "000-001",
 		"boosterLevel" : %BOOST_LEVEL%,
 		"state" : %CONTROLLER_STATE%,

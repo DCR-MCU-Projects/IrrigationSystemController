@@ -1,0 +1,28 @@
+{
+	"zone" : [
+		{
+			"id" : 0,
+			"label" : "Frontyard - Big"
+		},
+		{
+			"id" : 1,
+			"label" : "Frontyard - Small"
+		},
+		{
+			"id" : 2,
+			"label" : "Backyard"
+		},
+		{
+			"id" : 3,
+			"label" : "Swimming Pool"
+		}
+	],
+	"apiCall" : {
+		"start" : {
+			"uri" : "http://{{host}}/zone/start?id={{id}}"
+		},
+		"stop" : {
+			"uri" : "http://{{host}}/zone/stop?id={{id}}"
+		},
+	}
+}

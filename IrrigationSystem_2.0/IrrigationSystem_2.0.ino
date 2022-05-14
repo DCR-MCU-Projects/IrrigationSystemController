@@ -5,7 +5,7 @@ IrrigationController irrigationController(PIN_REVERSER, PIN_BOOST);
 
 IrrigationZone* zone[8];
 
-FlowMeter *Meter;
+//FlowMeter *Meter;
 
 AsyncWebServer server(80);
 
@@ -36,8 +36,8 @@ void setup() {
     return;
   }
 
-  Serial.println("Setting up FlowMeter ...");
-  Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
+  // Serial.println("Setting up FlowMeter ...");
+  // Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
   
   
   Serial.println("Setting up Controller ...");
@@ -69,27 +69,26 @@ void setup() {
   Serial.print(HOSTNAME);
   Serial.print(".local");
   Serial.println("/v1/");
-
 }
 
 void loop() {
-
+  
+  MDNS.update();
   
   delay(300);
 
   if (WiFi.status() != WL_CONNECTED)
     ESP.restart();
 
-  Meter->tick(300);
+  //Meter->tick(300);
 
-  if (irrigationController.getActiveZone() != NULL)
-    irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
+  // if (irrigationController.getActiveZone() != NULL)
+  //   irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
 
   irrigationController.handleRequests();
 
   if (switchRemoteUpdate)
     ArduinoOTA.handle();
-  
 }
 
 void initWiFi() {
@@ -104,6 +103,8 @@ void initWiFi() {
   if (!MDNS.begin(HOSTNAME)) {
     Serial.println("Error setting up MDNS responder!");
   }
+
+  MDNS.addService("http", "tcp", 80);
 }
 
 void initWebServer() {
@@ -111,16 +112,17 @@ void initWebServer() {
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
   server.onNotFound([](AsyncWebServerRequest *request){
-    request->send(404, "text/plain", "Not found");
+    request->send(404, "text/plain", "Endpoint your are looking for does not exist.");
   });
 
   /* Enable Over The Air update mode */
   server.on("/ota-update", HTTP_PUT, [](AsyncWebServerRequest *request){
     switchRemoteUpdate = true;
     request->send(200, "application/json", "{\"status\": \"You may now update using OTA\"}");
-  }).setAuthentication("user", "pass");;
+  }).setAuthentication("user", "pass");
 
   server.on("/stats", HTTP_GET, [](AsyncWebServerRequest *request){  
+
     request->send(SPIFFS, "/stats.json", String(), false, processor);
   });
 
@@ -145,8 +147,10 @@ void initWebServer() {
             request->send(404, "application/json", "{\"status\": \"Missing argument: name.\"}");
         } else if (action == "enable") {
             zone[id]->state = ENABLE;
+            request->send(204);
         } else if (action == "disable") {
             zone[id]->state = DISABLE;
+            request->send(204);
         } else
           request->send(404, "application/json", "{\"status\": \"The action you requested does not exist here.\"}");
       } else
@@ -266,10 +270,13 @@ void initOTAUpdate() {
 }
 
 
-IRAM_ATTR void MeterISR() { Meter->count(); }
+// IRAM_ATTR void MeterISR() { Meter->count(); }
 
 String processor(const String& var) {
-  if(var == "BOOST_LEVEL"){
+  if(var == "VERSION"){
+    return String(VERSION);
+  }
+  else if(var == "BOOST_LEVEL"){
     return String(irrigationController.getBoostLevel());
   }
   else if (var == "CONTROLLER_STATUS") {
@@ -324,4 +331,3 @@ String processor(const String& var) {
 
   return F("UNDEFINED");
 }
-

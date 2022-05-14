@@ -115,10 +115,6 @@ void IrrigationController::handleRequests() {
         stopBooster();
         setStatus(IDLE);
         actionTimeout = 0;
-        // if (getBoostLevel() < 90) {
-        //   setState(DISABLE);
-        //   trace(__FILE__, ERROR, "Booster tried to load, but is still low charge after 5 sec. For safty, the controller will be disable and booster will remain uncharged.");
-        // }
       }
     }
     // END AUTO-BOOST

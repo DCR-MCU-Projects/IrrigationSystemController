@@ -1,10 +1,12 @@
 // Project has been designed for ESP8266
 
+#define VERSION     "2.3.1000"
+
 #define AUTHOR      "David Cuerrier"
 #define CONTACT     "david.cuerrier@gmail.com"
 #define COPYRIGHT   "This code may be use as is, all modification need to be reviewed and pushed back into community repository"
 
-#define HOSTNAME    "IrrigationController"
+#define HOSTNAME    "irrigationcontroller"
 #define STASSID     "Burton"
 #define STAPSK      "Takeachance01"
 
@@ -16,7 +18,7 @@
   #include <ESP8266mDNS.h>
   #include <WiFiUdp.h>
   #include <ArduinoOTA.h>
-  #include <FlowMeter.h>
+  //#include <FlowMeter.h>
 
   #include <Arduino_JSON.h>
   #include <FS.h>
@@ -48,7 +50,7 @@
   void initWebServer();
 
   String processor(const String& var);
-  IRAM_ATTR void MeterISR();
+  // IRAM_ATTR void MeterISR();
 
   struct Config {
     short zone_count;
