@@ -1,6 +1,6 @@
 // Project has been designed for ESP8266
 
-#define VERSION     "2.3.1000"
+#define VERSION     "2.3.1002"
 
 #define AUTHOR      "David Cuerrier"
 #define CONTACT     "david.cuerrier@gmail.com"
@@ -18,7 +18,7 @@
   #include <ESP8266mDNS.h>
   #include <WiFiUdp.h>
   #include <ArduinoOTA.h>
-  //#include <FlowMeter.h>
+  #include <FlowMeter.h>
 
   #include <Arduino_JSON.h>
   #include <FS.h>
@@ -48,13 +48,13 @@
   void initOTAUpdate();
   void initWiFi();
   void initWebServer();
+  void initController();
 
   String processor(const String& var);
-  // IRAM_ATTR void MeterISR();
+  IRAM_ATTR void MeterISR();
 
   struct Config {
     short zone_count;
-
   };
 
 #endif

@@ -1,0 +1,1 @@
+docker run --rm --name ir_webconsole -p 8080:80 -v $(pwd)/src/:/var/www/html/ php:8.1-apache

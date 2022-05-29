@@ -5,7 +5,7 @@ IrrigationController irrigationController(PIN_REVERSER, PIN_BOOST);
 
 IrrigationZone* zone[8];
 
-//FlowMeter *Meter;
+FlowMeter *Meter;
 
 AsyncWebServer server(80);
 
@@ -36,8 +36,8 @@ void setup() {
     return;
   }
 
-  // Serial.println("Setting up FlowMeter ...");
-  // Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
+  Serial.println("Setting up FlowMeter ...");
+  Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
   
   
   Serial.println("Setting up Controller ...");
@@ -56,7 +56,9 @@ void setup() {
   zone[2]->state = ENABLE;
   zone[3]->state = ENABLE;
 
-  Serial.println("Setting up WebServer...");
+  irrigationController.initSequance(zone);
+
+  Serial.println("Setting up WebServer ...");
   initWebServer();
 
   Serial.println("You may reach the RestAPI at:");
@@ -67,8 +69,8 @@ void setup() {
 
   Serial.print("\thttp://");
   Serial.print(HOSTNAME);
-  Serial.print(".local");
-  Serial.println("/v1/");
+  Serial.print(".local/");
+  //Serial.println("v1/");
 }
 
 void loop() {
@@ -82,13 +84,17 @@ void loop() {
 
   //Meter->tick(300);
 
-  // if (irrigationController.getActiveZone() != NULL)
-  //   irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
+  if (irrigationController.getActiveZone() != NULL)
+    irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
 
   irrigationController.handleRequests();
 
-  if (switchRemoteUpdate)
+  if (switchRemoteUpdate) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(300);
     ArduinoOTA.handle();
+    digitalWrite(LED_BUILTIN, LOW);
+  }
 }
 
 void initWiFi() {
@@ -124,6 +130,12 @@ void initWebServer() {
   server.on("/stats", HTTP_GET, [](AsyncWebServerRequest *request){  
 
     request->send(SPIFFS, "/stats.json", String(), false, processor);
+  });
+
+  server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request){  
+    request->send(200, "application/json", "{\"status\": \"Ok will do a restart in a momomomomomoment\"}");
+    delay(500);
+    ESP.restart();
   });
 
   /* Modify an existing zone */
@@ -166,7 +178,7 @@ void initWebServer() {
       request->send(405, "application/json", "{\"status\": \"Booster is running low, please wait and try again soon.\"}");
 
     if (irrigationController.getStatus() == IDLE) {
-      if (irrigationController.getActiveZone() == NULL) {
+      // if (irrigationController.getActiveZone() == NULL) {
         if (request->hasParam("id")) {
           short id = (short) atoi(request->getParam("id")->value().c_str());
           irrigationController.startZone(zone[id]);
@@ -175,8 +187,8 @@ void initWebServer() {
         } else
           request->send(400, "application/json", "{\"status\": \"You need to specify a zone id.\"}");
 
-      } else
-        request->send(409, "application/json", "{\"status\": \"The active zone is not NULL, seems like the controller is already in use...\"}");
+      // } else
+        // request->send(409, "application/json", "{\"status\": \"The active zone is not NULL, seems like the controller is already in use...\"}");
 
     } else
       request->send(409, "application/json", "{\"status\": \"The controller is not in IDLE state.\"}");
@@ -207,19 +219,19 @@ void initWebServer() {
   });
 
 
-  // server.on("/flow", HTTP_GET, [](AsyncWebServerRequest *request){
-  //   JSONVar ret;
-  //   double a = 2.19;
-  //   ret[0] = Meter->getCurrentFlowrate();
-  //   ret[1] = Meter->getCurrentVolume();
-  //   ret[2] = Meter->getTotalFlowrate();
-  //   ret[3] = Meter->getTotalVolume();
-  //   ret[4] = a;
+  server.on("/flow", HTTP_GET, [](AsyncWebServerRequest *request){
+    JSONVar ret;
+    double a = 2.19;
+    ret[0] = Meter->getCurrentFlowrate();
+    ret[1] = Meter->getCurrentVolume();
+    ret[2] = Meter->getTotalFlowrate();
+    ret[3] = Meter->getTotalVolume();
+    ret[4] = a;
     
-  //   String jsonString = JSON.stringify(ret);
+    String jsonString = JSON.stringify(ret);
     
-  //   request->send(200, "application/json", jsonString);
-  // });
+    request->send(200, "application/json", jsonString);
+  });
 
     
   server.begin();
@@ -269,8 +281,11 @@ void initOTAUpdate() {
   Serial.println(WiFi.localIP());
 }
 
+void initController() {
+   
+}
 
-// IRAM_ATTR void MeterISR() { Meter->count(); }
+IRAM_ATTR void MeterISR() { Meter->count(); }
 
 String processor(const String& var) {
   if(var == "VERSION"){

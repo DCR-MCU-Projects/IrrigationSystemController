@@ -93,6 +93,8 @@
       bool              startZone(IrrigationZone* zone);
       bool              stopZone(IrrigationZone* zone);
 
+      void              initSequance(IrrigationZone* zone[]);
+
       void              handleRequests();
   };
 

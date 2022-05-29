@@ -11,6 +11,9 @@ IrrigationController::IrrigationController(short polarityReverserPin, short rela
   
   digitalWrite(relayBoosterPin, LOW);
   digitalWrite(polarityReverserPin, LOW);
+
+
+
 }
 
 void IrrigationController::reversePolarity(bool state) {
@@ -89,6 +92,22 @@ bool IrrigationController::startZone(IrrigationZone* zone) {
   }
   
   return true;
+}
+
+// NEED AN ARRAY OF POINTER
+void IrrigationController::initSequance(IrrigationZone* zone[8]) {
+  
+  startBooster();
+  delay(2000);
+  stopBooster();
+
+  for (int i = 0; i < 4; i++) {
+    stopZoneON(zone[i]);
+    delay(1000);
+    stopZoneOFF(zone[i]);
+    delay(500);
+  }
+
 }
 
 // This method should be called from the main thread LOOP method. It will manage all request in the pipeline.
