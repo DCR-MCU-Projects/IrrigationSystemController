@@ -31,6 +31,7 @@
       IrrigationSTATUS        status;           // Status of the zone, idle, starting, running, stopping
       IrrigationSTATE         state;            // State of the zone, enable, disable
       double                  flow;             // Flow based on main thread delay
+      long                    timeout;
 
       IrrigationZone(short zoneID, short zonePIN) {
         id = zoneID;
@@ -38,6 +39,7 @@
         name = "UNDEFINED";
         state = DISABLE;
         status = IDLE;
+        timeout = 0;
 
         pinMode(pin, OUTPUT);
         digitalWrite(pin, LOW);
@@ -55,6 +57,7 @@
 
     private:
       IrrigationJob     jobPlan;
+      bool              needBoost;
 
       short             _polarityReverserPin = -1;
       short             _relayBoosterPin = -1;
@@ -65,6 +68,8 @@
       IrrigationZone*   activeZone = NULL;//new IrrigationZone(-1, -1);
 
       long              latestTickTime = 0;
+      long              safetyKillTime = 0; // Used to stop activity after 1h if valve has been forgot.
+      long              safetyKillTimeOutMills = 3600000; // Timeout set to 1h.
               
       long              actionTimeout;    // Used to plan the next action when triggering a strike.
               
@@ -81,6 +86,8 @@
     public:
       IrrigationController(short polarityReverserPin, short relayBoosterPin);
 
+      void              boost();
+
       void              setState(IrrigationSTATE state) { _state = state; };
       void              setStatus(IrrigationSTATUS status) { _status = status; };
 
@@ -88,9 +95,10 @@
       IrrigationSTATUS  getStatus() { return _status; };
 
       IrrigationZone*   getActiveZone() { return activeZone; };
-      short             getBoostLevel(); // Read the boost level, usefull to see if an action can be made, which need boost.
+      // short             getBoostLevel(); // Read the boost level, usefull to see if an action can be made, which need boost.
 
       bool              startZone(IrrigationZone* zone);
+      bool              startZone(IrrigationZone* zone, long timeout);
       bool              stopZone(IrrigationZone* zone);
 
       void              initSequance(IrrigationZone* zone[]);

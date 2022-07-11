@@ -1,0 +1,119 @@
+<?xml version="1.0"?>
+<webapi>
+
+	<information>
+		<title>Network 3.0 REST API</title>
+		<version>1.0</version>
+		<built>1</built>
+		<support>David Cuerrier david.cuerrier@bell.ca</support>		
+		<returncodes>			
+			<return code="200">Depending on function called, see detail in each function help section below.</return>
+			<return code="201">The function may or may not return data, but this is a confirmation that the function has create something. Usually use when the request method is PUT.</return>
+			<return code="204">The function has successfully run but no data was return.</return>
+			<return code="401">Your token is expired, you must redo your login. Or a bad login information.</return>
+			<return code="403">You are logged in but do not have sufficient privileges to run this function.</return>
+			<return code="404">Depending on function called, see detail in each function help section below.</return>			
+			<return code="406">The Accept type in the header is not supported by thie WebAPI.</return>
+			<return code="409">Some informations are missing or incorrect, X-Bell-SID header token or maybe the JSON object in the body part has some error.</return>
+			<return code="415">The Content-Type sent in the header is not supported by this WebAPI.</return>
+		</returncodes>
+		<notes>
+			<![CDATA[
+				This REST api only accept application/json as a Content-Type and Accept type header. you MUST provide thoses tow header in order to exchange with this WebAPI.
+					
+					Content-Type: application/json
+					Accept: application/json
+			]]>
+		</notes>
+	</information>
+
+	<classes>
+		<class name="User" filename="class.user.php" />
+		<class name="Login" filename="class.login.php" />
+		<class name="General" filename="class.general.php" />
+	</classes>
+		
+	<functions>
+		
+		<function uri="/">
+			<name>Help and presentation</name>
+			<action method="GET" class="General" func="ShowVisualHomeScreen">
+				<description>Get a html representation of every function that you may use with this web api</description>
+			</action>			
+		</function>
+		
+		<function uri="/login">
+			<name>Login service</name>
+			<action method="POST" class="Login" func="login">
+				<description>Challenge the webapi with a user login to get a token-id.</description>				
+				<exemple>{"uname":"your_username", "upwd":"your_password"}</exemple>
+				<parameter name="uname" type="string">The username to be use for the login challenge.</parameter>
+				<parameter name="upwd" type="string">The password to be use for the login challenge.</parameter>
+				<return code="200">Array of roles for this user.</return>
+				<return code="401">Bad login information.</return>
+			</action>
+		</function>
+		
+		<function uri="/user">
+			<name>Logged user information service</name>
+			<action method="GET" class="User" func="getUserInformation">
+				<description>Get information about the current logged user</description>
+			</action>
+			<action method="POST" class="User" func="getUserList" admin="true">
+				<description>Get a list of all user base on the input request field.</description>
+			</action>
+			<action method="PUT" class="User" func="addUser" admin="true">
+				<description>Add a new user and optionaly setup roles for it</description>
+			</action>
+		</function>
+		<function uri="/user/role">
+			<name>User role service</name>
+			<action method="GET" class="User" func="getLoggedUserRole">
+				<description>Get roles for the logged user.</description>
+			</action>
+		</function>
+		<function uri="/user/navigation">
+			<name>User navigation service</name>
+			<action method="GET" class="User" func="getUserNavigationTree">
+				<description>Get navigation tree for the current logged user</description>
+			</action>
+		</function>
+		<function uri="/user/{id}">
+			<name>Specific user information service</name>
+			<action method="GET" class="User" func="getUser" admin="true">
+				<description>Get information about a user id</description>
+			</action>
+			<action method="DELETE" class="User" funct="deleteUser" admin="true">
+				<description>Delete a user base on its user ID</description>
+			</action>
+		</function>
+		<function uri="/user/{id}/role">
+			<name>Specific user role service</name>
+			<action method="GET" class="User" func="getUserRole" admin="true">
+				<description>Get roles for a specific user.</description>
+				<parameter name="{id}" type="integer">The user id to retrieve roles from.</parameter>
+			</action>
+			<action method="POST" class="User" func="setUserRole" admin="true">
+				<description>Set a role to a user.</description>
+			</action>
+		</function>
+	
+		<function uri="/navigation">
+			<name>Logged user navigation service</name>
+			<action method="GET" class="Navigation" func="getNavigationTree">
+				<description>Get a list of all navigation tree</description>
+			</action>
+			<action method="PUT" class="Navigation" func="addNavigationTree">
+				<description>Create a new navigation tree</description>
+			</action>
+		</function>
+		<function uri="/navigation/{id}">
+			<name>Specific navigation service</name>
+			<action method="DELETE" class="Navigation" func="deleteNavigationTree">
+				<description>Delete a navigation tree</description>
+			</action>
+		</function>
+
+	</functions>
+	
+</webapi>

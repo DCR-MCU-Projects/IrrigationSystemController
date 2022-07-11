@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<webapi>
+
+	<information>
+		<title>PACO Message Board API</title>
+		<version>1.0</version>
+		<build>1</build>
+		<support>David Cuerrier david.cuerrier@bell.ca</support>		
+		<returncodes>			
+			<return code="200">Depending on function called, see detail in each function help section below.</return>
+			<return code="201">The function may or may not return data, but this is a confirmation that the function has create something. Usually use when the request method is PUT.</return>
+			<return code="204">The function has successfully run but no data was return.</return>
+			<return code="401">Your token is expired, you must redo your login. Or a bad login information.</return>
+			<return code="403">You are logged in but do not have sufficient privileges to run this function.</return>
+			<return code="404">Depending on function called, see detail in each function help section below.</return>			
+			<return code="406">The Accept type in the header is not supported by thie WebAPI.</return>
+			<return code="409">Some informations are missing or incorrect, X-Bell-SID header token or maybe the JSON object in the body part has some error. It can also result of a conflic of data, like if the data you want to PUT already exist!</return>
+			<return code="415">The Content-Type sent in the header is not supported by this WebAPI.</return>			
+			<return code="501">The function is not implemented in that class.</return>			
+			<return code="503 ">Service is in maintenance or is overloaded for the moment.</return>
+		</returncodes>
+		<notes>
+<![CDATA[This REST api only accept application/json as a Content-Type and Accept type header. you MUST provide thoses tow header in order to exchange with this WebAPI.
+
+Content-Type: application/json
+Accept: application/json]]>
+		</notes>
+	</information>
+
+	<classes>
+		<class name="General" filename="class.general.php" />		
+		<class name="Security" filename="class.security.php" />		
+		<class name="PACOMessageDatabase" filename="class.message.database.php" />
+	</classes>
+
+	<functions>
+		
+		<!-- BEGIN General URI Functions -->
+		<group name="General API" description="Group of general API function, thoses function are usaully returning meta data of the API, version and informations.">
+			<function uri="/">
+				<name>Help and presentation</name>
+				<action method="GET" class="General" func="ShowVisualHomeScreen" enable="true">
+					<name>Show this help screen</name>
+					<description>Get a html representation of every function that you may use with this web api.</description>
+					<return code="200">Display the help table with all request possibles</return>				
+				</action>			
+			</function>		
+			<function uri="/info">
+				<name>RESTFull API Information</name>			
+				<action method="GET" class="General" func="GetAPIInfo" enable="true">
+					<name>Get API Information</name>
+					<description>Get information about RESTFull API. Version Name etc.</description>
+					<return code="200">Return a JSON object containing information.</return>	
+				</action>
+			</function>
+			<function uri="/version">
+				<name>RESTFull API Version</name>			
+				<action method="GET" class="General" func="GetAPIVersion" enable="true">
+					<name>Get The API Version</name>
+					<description>Get version and build of the RESTFull API.</description>
+					<return code="200">Return a JSON object containing information.</return>	
+				</action>
+			</function>
+		</group>
+		<!-- END General URI Functions -->
+
+		<!-- User information gatherer URI Functions -->
+		<group name="Security" description="Security function">
+			<function uri="/login">
+				<name>Manage the environment collection</name>
+				<action method="POST" class="Security" func="login" enable="true">
+					<description>This action will generate the javascript file that PACO use to present messsage</description>
+					<exemple>
+						{"username":"user1", "password":"pass1"}
+					</exemple>
+				</action>
+			</function>		
+		</group>
+		
+		<!-- User information gatherer URI Functions -->
+		<group name="PACO Message Manager" description="Functions to get and set message on different PACO portal.">
+			<function uri="/environment">
+				<name>Manage the environment collection</name>
+				<action method="GET" class="PACOMessageDatabase" func="getEnvironements" enable="true">
+					<description>Get the environment collection</description>
+					<return code="200">Return an array of environment</return>					
+				</action>
+				<action method="POST" class="PACOMessageDatabase" func="generatePACOMessageFile" enable="true">
+					<description>This action will generate the javascript file that PACO use to present messsage</description>
+				</action>
+			</function>
+			<function uri="/{environmentID}/message">
+				<name>Manage the message collection for a specific environment</name>
+				<parameter name="{environmentID}" type="integer">The environment to query message from</parameter>
+				<action method="GET" class="PACOMessageDatabase" func="getMessages" enable="true">
+					<description>Get the message collection for an environment</description>
+					<return code="200">Array of message</return>
+				</action>
+				<action method="POST" class="PACOMessageDatabase" func="insertMessage" enable="true">
+					<description>Insert a new message</description>
+					<return code="201">Creation occured!</return>
+					<exemple>
+{
+	"name": "The new PACO",
+	"messageUID": "019A8-9182B-292N3",
+	"state": 1,
+	"highlight": "dark",
+	"closeable": true,
+	"message": {
+		"en": {
+			"label": "The new PACO version",
+			"title": "The Portal Access Centralized for Operations has upgraded!",
+			"body": "The PulseSecure SSL box has been evergreen and are now running under version 2.0. We took advantage of this upgrad to revamp the login portal as well. You will now be able to access the IT-SDI utilities under a single point of contact, or directly using the link of each tool.",
+			"helpLink": "http://www.google.com",
+			"helpLabel": "More Information"
+		},
+		"fr": {
+			"label": "La nouvelle version de PACO",
+			"title": "Le Portai d'Acces Centralisé d'Opérations s'améliore!",
+			"body": "Les équipement PulseSecure SSL ont été mis-à-niveau et fonctionne maintenant avec la version 2.0. Nous avons profité de cette mise-à-jour pour rendre le portail PACO plus pratique. Vous pourrez maintenant accéder au utilitaires IT-SDI à partir d'un seul point, ou directement à ceux-ci en continuant d'utiliser leur liens propres.",
+			"helpLink": "http://www.google.com",
+			"helpLabel": "Details"
+		}		
+	}
+}
+</exemple>
+				</action>
+			</function>	
+			<function uri="/{environmentID}/message/sort">
+				<name>Sort the message of an environment</name>
+				<parameter name="{environmentID}" type="integer">The environment to sort message from</parameter>				
+				<action method="POST" class="PACOMessageDatabase" func="sortMessages" enable="true">
+					<description>Get the message detail for an message</description>
+					<return code="200">Array of message</return>
+				</action>
+			</function>			
+			<function uri="/{environmentID}/message/{messageID}">
+				<name>Get detail about a specific message</name>
+				<parameter name="{environmentID}" type="integer">The environment to query message from</parameter>
+				<parameter name="{messageID}" type="integer">The message witch we want details</parameter>
+				<action method="GET" class="PACOMessageDatabase" func="getMessageItems" enable="true">
+					<description>Get the message detail for an message</description>
+					<return code="200">Array of message</return>
+				</action>
+				<action method="DELETE" class="PACOMessageDatabase" func="deleteMessage" enable="true">
+					<description>Delete a specific message</description>
+					<return code="200">Array of message</return>
+				</action>
+				<action method="PUT" class="PACOMessageDatabase" func="modifyMessage" enable="true">
+					<description>Modify a specific message</description>
+					<return code="200">Array of message</return>
+				</action>
+			</function>				
+		</group>	
+		
+
+		
+	</functions>
+	
+</webapi>

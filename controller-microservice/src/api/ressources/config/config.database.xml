@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+
+<!--
+	This file include the database configuration to the project
+	kitchen.inventory. It may be different from preprod to prod.
+	
+	Version 1.0
+	David Cuerrier
+-->
+
+<databaseConfig>
+	<server>127.0.0.1</server>
+	<username>root</username>
+	<password>20bce25!</password>
+	<database>pacomb</database>
+</databaseConfig>

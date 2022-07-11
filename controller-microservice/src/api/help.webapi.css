@@ -1,0 +1,61 @@
+#top-banner {
+	color: whitesmoke;
+	background-color: #163769;
+}
+
+#testBoxCard {
+	background-color: whitesmoke;
+	height: 300px;
+	border-radius: 0px;
+	border-right: 0px;
+	border-left: 0px;
+}
+
+.function-title {
+	cursor: pointer;
+	
+}
+.function-title:hover {
+	
+}
+
+.field {
+	
+}
+
+tr th {
+	text-align: center;
+}
+
+
+.GET {
+	background: #009933;
+	color: White;
+}
+
+.POST {
+	background: #6666FF;
+	color: White;
+}
+
+.DELETE {
+	background: #F93434;
+	color: white;
+}
+
+.PUT {
+	background: #FF6699;
+	color: white;
+}
+
+.COPY {
+	background: rgb(37,141,200);
+	color: white;
+}
+
+.method {
+	width: 120px;
+	/* display: inline-block; */
+}
+
+button:focus, a:focus {outline:0;}

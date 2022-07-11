@@ -1,0 +1,271 @@
+<?xml version="1.0"?>
+<webapi>
+
+	<information>
+		<title>CIAPPSetter REST API</title>
+		<version>2.0</version>
+		<build>120</build>
+		<support>David Cuerrier david.cuerrier@bell.ca</support>		
+		<returncodes>			
+			<return code="200">Depending on function called, see detail in each function help section below.</return>
+			<return code="201">The function may or may not return data, but this is a confirmation that the function has create something. Usually use when the request method is PUT.</return>
+			<return code="204">The function has successfully run but no data was return.</return>
+			<return code="401">Your token is expired, you must redo your login. Or a bad login information.</return>
+			<return code="403">You are logged in but do not have sufficient privileges to run this function.</return>
+			<return code="404">Depending on function called, see detail in each function help section below.</return>			
+			<return code="406">The Accept type in the header is not supported by thie WebAPI.</return>
+			<return code="409">Some informations are missing or incorrect, X-Bell-SID header token or maybe the JSON object in the body part has some error.</return>
+			<return code="415">The Content-Type sent in the header is not supported by this WebAPI.</return>			
+			<return code="501">The function is not implemented in that class.</return>			
+			<return code="503 ">Service is in maintenance or is overloaded for the moment.</return>
+		</returncodes>
+		<notes>
+			<![CDATA[
+					This REST api only accept application/json as a Content-Type and Accept type header. you MUST provide thoses tow header in order to exchange with this WebAPI.
+					
+					Content-Type: application/json
+					Accept: application/json
+			]]>
+		</notes>
+	</information>
+
+	<classes>
+		<class name="General" filename="class.general.php" />		
+		<class name="ManageTemplate" filename="class.template.php" />
+		<class name="ManageFilter" filename="class.filter.php" />
+		<class name="ManagerSetter" filename="class.setter.php" />
+		<class name="XLog" filename="class.xlog.php" />
+	</classes>
+
+	<functions>
+		
+		<!-- BEGIN General URI Functions -->
+		<group name="General URI Function">
+			<function uri="/">
+				<name>Help and presentation</name>
+				<action method="GET" class="General" func="ShowVisualHomeScreen" enable="true">
+					<name>ShowHelpScreen</name>
+					<description>Get a html representation of every function that you may use with this web api</description>
+					<return code="200">Display the help table with all request possibles</return>				
+				</action>			
+			</function>		
+			<function uri="/info">
+				<name>RESTFull API Information</name>			
+				<action method="GET" class="General" func="GetAPIInfo" enable="true">
+					<name>Get API Information</name>
+					<description>Get information about RESTFull API. Version Name etc.</description>
+					<return code="200">Return a JSON object containing information.</return>	
+				</action>
+			</function>
+			<function uri="/version">
+				<name>RESTFull API Version</name>			
+				<action method="GET" class="General" func="GetAPIVersion" enable="true">
+					<name>Get The API Version</name>
+					<description>Get version and build of the RESTFull API.</description>
+					<return code="200">Return a JSON object containing information.</return>	
+				</action>
+			</function>
+		</group>
+		<!-- END General URI Functions -->
+		
+		<!-- Template Enhancer URI Functions -->
+		<group name="Template Enhancer URI Functions">
+			<function uri="/template">
+				<name>Template Actions</name>
+				<action method="GET" class="ManageTemplate" func="GetTemplate" enable="true">					
+					<description>Return a list of all templates information.</description>				
+					<return code="200">Array of template json object.</return>
+					<return code="404">Error if nothing found. That means no template in the DB.</return>
+				</action>
+				<action method="PUT" class="ManageTemplate" func="AddTemplate" enable="true">
+					<description>Add a new template.</description>
+					<exemple>
+					{
+						"name":"Template Name",
+						"description":"Template Description",
+						"support_team_id":1
+					}
+					</exemple>
+					<parameter name="name" type="string">Name of the new template.</parameter>
+					<parameter name="description" type="string">Description of the new template.</parameter>
+					<parameter name="support_team_id" type="int">ID of the support team of this template.</parameter>
+					<return code="201">The template has been created.</return>	
+					<return code="409">Missing parameter. Take a look at the exemple in the help section.</return>	
+				</action>
+			</function>
+			<function uri="/template/{id}">
+				<name>Template Actions</name>
+				<parameter name="{id}" type="integer">The template id to be delete.</parameter>
+				<action method="GET" class="ManageTemplate" func="GetTemplate" enable="true">
+					<description>Return a templates information.</description>				
+					<return code="200">Array that represent template info.</return>
+					<return code="404">No template found regarding this ID.</return>
+				</action>
+				<action method="DELETE" class="ManageTemplate" func="DeleteTemplate" enable="true">
+					<description>Delete the specified template id</description>					
+					<return code="204">The template has been deleted.</return>				
+					<return code="404">No template found using this ID.</return>				
+				</action>
+				<action method="POST" class="ManageTemplate" func="EditTemplate" enable="true">
+					<description>Modify a template base on data receive in POST data.</description>
+					<exemple>
+					{
+						"name":"New Template Name",
+						"description":"New Template Description",
+						"support_team_id":1
+					}
+					</exemple>					
+					<parameter name="name" type="string">New name of the template.</parameter>				
+					<parameter name="description" type="string">New description of the template.</parameter>				
+					<parameter name="support_team_id" type="integer">Support team ID related to the template.</parameter>				
+					<return code="204">The template has been renamed</return>
+					<return code="404">Can't find thie template ID.</return>
+					<return code="409">Missing parameter. Take a look at the exemple in the help section.</return>	
+				</action>
+				<action method="COPY" class="ManageTemplate" func="CopyTemplate" enable="true">
+					<description>Copy the specified template id</description>					
+					<return code="204">The template has been copied.</return>				
+					<return code="404">No template found using this ID.</return>	
+				</action>
+			</function>
+		</group>
+		
+		<!-- Filter Enhancer URI Functions -->
+		<group name="Filter Enhancer URI Functions">
+			<function uri="/template/{templateId}/filter">
+				<name>Filter Actions</name>
+				<parameter name="{templateId}" type="integer">The template id to be rename.</parameter>
+				<action method="GET" class="ManageFilter" func="GetFilterFromTemplate" enable="true">
+					<description>Get all filters from a template</description>					
+				</action>
+				<action method="PUT" class="ManageFilter" func="AddFilter">
+					<description>Add a new filter to a template. (Attribut action : 0 = stop, 1 = passtrough)</description>
+					<exemple>
+					{"name":"Filter Name", "action":0, "groups":
+					[
+						[
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							],
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							]
+						],
+						[
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							],
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							]
+						]
+					]}
+					</exemple>
+				</action>
+			</function>		
+			<function uri="/filter/{filterId}">
+				<name>Filter Actions</name>				
+				<parameter name="{filterId}" type="integer">The filter id toget.</parameter>
+				<action method="GET" class="ManageFilter" func="GetFilterFromID">
+					<description>Get specified filter from id.</description>
+				</action>
+				<action method="POST" class="ManageFilter" func="EditFilter">
+					<description>Modify a filter base on the data in tu POST section.</description>
+					<exemple>
+					{"name":"Filter Name", "action":0, "groups":
+					[
+						[
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							],
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							]
+						],
+						[
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							],
+							[
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""},
+								{"field":"", "operator":"", "value":""}
+							]
+						]
+					]}
+					</exemple>
+					<parameter name="name" type="string">Display name of the filter.</parameter>
+					<parameter name="action" type="integer">How the filter must be treaded: 0 = stop after matching this filer, 1 = go on even if the filter match the alarm.</parameter>
+					<parameter name="groups" type="JSON-Array">An array of groups (array) see exemple.</parameter>
+				</action>
+				<action method="DELETE" class="ManageFilter" func="DeleteFilter">
+					<description>Delete a filter base on his id</description>
+				</action>
+			</function>		
+		</group>
+		
+		<!-- Setter Enhancer URI Functions -->
+		<group name="Setter Enhancer URI Functions">
+			<function uri="/template/{templateId}/{filterid}/setter">
+				<name>Setter Actions</name>
+				<parameter name="{templateId}" type="integer">The template id related to this request.</parameter>
+				<parameter name="{filterid}" type="integer">The filter id related to this request.</parameter>
+				<action method="GET" class="ManageSetter" func="GetSetterFromTemplate">
+					<description>Get all setter of this template.</description>					
+				</action>
+				<action method="PUT" class="ManageSetter" func="AddSetter">
+					<description>Add a new setter to the template</description>					
+				</action>
+			</function>
+			<function uri="/template/{templateId}/{filterid}/setter/{setterId}">
+				<name>Setter Actions base on a setter-id</name>
+				<parameter name="{templateId}" type="integer">The template id where the stter is part of.</parameter>
+				<parameter name="{setterId}" type="integer">The setter id to get.</parameter>
+				<action method="GET" class="ManageSetter" func="GetSetterFromID">
+					<description>Get a setter by its ID.</description>
+				</action>
+				<action method="POST" class="ManageSetter" func="EditSetter">
+					<description>Modify a setter.</description>
+					<exemple>
+					[
+						{"field":"", "value":""},
+						{"field":"", "value":""},
+						{"field":"", "value":""}
+					]
+					</exemple>
+				</action>
+				<action method="DELETE" class="ManageSetter" func="DeleteSetter">
+					<description>Delete the pecified setter</description>
+				</action>
+			</function>			
+		</group>
+		
+		<!--<function uri="/login">
+			<name>Login service</name>
+			<action method="POST" class="Login" func="login">
+				<description>Challenge the webapi with a user login to get a token-id.</description>				
+				<exemple>{"uname":"your_username", "upwd":"your_password"}</exemple>
+				<parameter name="uname" type="string">The username to be use for the login challenge.</parameter>
+				<parameter name="upwd" type="string">The password to be use for the login challenge.</parameter>
+				<return code="200">Array of roles for this user.</return>
+				<return code="401">Bad login information.</return>
+			</action>
+		</function>-->
+		
+	</functions>
+	
+</webapi>

@@ -1,0 +1,2 @@
+RewriteEngine Off
+RewriteRule ^api/v1/(.*) index.php [NC,T=application/json]

@@ -1,0 +1,25 @@
+* {
+
+}
+
+body {
+
+}
+
+#box-statistics {
+	height: 100px;
+}
+#box-state {
+	height: 100px;
+}
+
+#box-control {
+
+}
+.zone-btn {
+	width: 150px;
+	height: 150px;
+
+	background-color: red;
+}
+

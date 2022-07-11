@@ -1,40 +1,41 @@
 <?php
 
-	$controller = new RESTApiController();
+	// $controller = new RESTApiController();
 
-	$controller->registerEndpoint(RESTApiController::GET, "/info", function() {
-		echo "HELLO!";
-	});
+	// $controller->registerEndpoint(RESTApiController::GET, "/info", function() {
+	// 	echo "HELLO!";
+	// });
 
-	print_r($_SERVER);
+	//print_r($_SERVER);
+phpinfo();
 
-	$controller->parse();
+	// $controller->parse();
 	
-	class RESTApiController
-	{
+	// class RESTApiController
+	// {
 
-		const GET = 0;
-		const POST = 1;
-		const PUT = 2;
+	// 	const GET = 0;
+	// 	const POST = 1;
+	// 	const PUT = 2;
 
-		private $endPointCollection = [];
+	// 	private $endPointCollection = [];
 
-		function __construct()
-		{
+	// 	function __construct()
+	// 	{
 
-		}
+	// 	}
 
-		public function registerEndpoint($method, $endpoint, $callbackFunction)
-		{
-			$this->endPointCollection[$method] = ['endpoint' => $endpoint, 'callback' => $callbackFunction];
-		}
+	// 	public function registerEndpoint($method, $endpoint, $callbackFunction)
+	// 	{
+	// 		$this->endPointCollection[$method] = ['endpoint' => $endpoint, 'callback' => $callbackFunction];
+	// 	}
 
-		public function parse($query)
-		{
+	// 	public function parse($query)
+	// 	{
 
-		}
+	// 	}
 
-	}
+	// }
 
 
 ?>

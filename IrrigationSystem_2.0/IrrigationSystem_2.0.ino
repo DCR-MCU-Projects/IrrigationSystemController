@@ -1,8 +1,8 @@
+// Need to disable firewall for OTA: sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 0
 
 #include "IrrigationSystem_2.0.h"
 
 IrrigationController irrigationController(PIN_REVERSER, PIN_BOOST);
-
 IrrigationZone* zone[8];
 
 FlowMeter *Meter;
@@ -11,15 +11,11 @@ AsyncWebServer server(80);
 
 long latestMillis = 0;
 
-
 void setup() {
 
-  pinMode(A0, INPUT);
+  initSerialCom(115200, 10000);
 
-  Serial.begin(115200);
-  Serial.setTimeout(10000);
-  Serial.println("");
-  Serial.println("");
+  pinMode(A0, INPUT);
 
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
@@ -56,6 +52,12 @@ void setup() {
   zone[2]->state = ENABLE;
   zone[3]->state = ENABLE;
 
+  
+
+  // Upon reboot, reset all zone with a stop signal. This force the 
+  // actuator to get its position and make sure all valve get glosed 
+  // if the unit get restarted by power lost.
+
   irrigationController.initSequance(zone);
 
   Serial.println("Setting up WebServer ...");
@@ -70,31 +72,41 @@ void setup() {
   Serial.print("\thttp://");
   Serial.print(HOSTNAME);
   Serial.print(".local/");
-  //Serial.println("v1/");
 }
 
 void loop() {
+
+  irrigationController.safetyCheck(zone);
   
-  MDNS.update();
-  
-  delay(300);
-
-  if (WiFi.status() != WL_CONNECTED)
-    ESP.restart();
-
-  //Meter->tick(300);
-
-  if (irrigationController.getActiveZone() != NULL)
-    irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
-
-  irrigationController.handleRequests();
-
   if (switchRemoteUpdate) {
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(300);
+    delay(500);
     ArduinoOTA.handle();
     digitalWrite(LED_BUILTIN, LOW);
+  } else {
+
+    MDNS.update();
+    
+    delay(300);
+
+    if (WiFi.status() != WL_CONNECTED)
+      ESP.restart();
+
+    //Meter->tick(300);
+
+    if (irrigationController.getActiveZone() != NULL)
+      irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
+
+    irrigationController.handleRequests();
   }
+
+}
+
+void initSerialCom(long speed, long timeout) {
+  Serial.begin(speed);
+  Serial.setTimeout(timeout);
+  Serial.println("Serial Com as been initialized");
+  Serial.println("------------------------------");
 }
 
 void initWiFi() {
@@ -138,6 +150,11 @@ void initWebServer() {
     ESP.restart();
   });
 
+  server.on("/boost", HTTP_POST, [](AsyncWebServerRequest *request){  
+    request->send(200, "application/json", "{\"status\": \"Ok boost\"}");
+    irrigationController.boost();
+  });
+
   /* Modify an existing zone */
   server.on("/zone", HTTP_PUT, [](AsyncWebServerRequest *request){  
     
@@ -172,49 +189,29 @@ void initWebServer() {
 
   });
 
-  server.on("/zone/start", HTTP_POST, [](AsyncWebServerRequest *request){
-
-    if (irrigationController.getBoostLevel() < 90)
-      request->send(405, "application/json", "{\"status\": \"Booster is running low, please wait and try again soon.\"}");
+  server.on("/zone/start", HTTP_POST, [](AsyncWebServerRequest *request) {
 
     if (irrigationController.getStatus() == IDLE) {
-      // if (irrigationController.getActiveZone() == NULL) {
-        if (request->hasParam("id")) {
-          short id = (short) atoi(request->getParam("id")->value().c_str());
-          irrigationController.startZone(zone[id]);
-          //request->send(204);
-          request->redirect("/stats");
-        } else
-          request->send(400, "application/json", "{\"status\": \"You need to specify a zone id.\"}");
-
-      // } else
-        // request->send(409, "application/json", "{\"status\": \"The active zone is not NULL, seems like the controller is already in use...\"}");
-
+      if (request->hasParam("id")) {
+        short id = (short) atoi(request->getParam("id")->value().c_str());
+        irrigationController.startZone(zone[id]);
+        //request->send(204);
+        request->redirect("/stats");
+      } else
+        request->send(400, "application/json", "{\"status\": \"You need to specify a zone id.\"}");
     } else
       request->send(409, "application/json", "{\"status\": \"The controller is not in IDLE state.\"}");
 
   });
 
-  server.on("/zone/stop", HTTP_POST, [](AsyncWebServerRequest *request){  
-
-      if (irrigationController.getBoostLevel() < 90)
-        request->send(405, "application/json", "{\"status\": \"Booster is running low, please wait and try again soon.\"}");
-    
-    // if (irrigationController.getStatus() == RUNNING) {
+  server.on("/zone/stop", HTTP_POST, [](AsyncWebServerRequest *request) {
 
         if (request->hasParam("id")) {
           short id = (short) atoi(request->getParam("id")->value().c_str());
-          // if (zone[id]->status == RUNNING) {
-            irrigationController.stopZone(zone[id]);
-            request->send(204);
-          // } else
-          //   request->send(409, "application/json", "{\"status\": \"The specified zone is not in RUNNING state.\"}");
+          irrigationController.stopZone(zone[id]);
+          request->send(204);
         } else
           request->send(400, "application/json", "{\"status\": \"You need to specify a zone id.\"}");
-
-
-    // } else
-    //   request->send(409, "application/json", "{\"status\": \"The controller is not in RUNNING state.\"}");
 
   });
 
@@ -241,7 +238,12 @@ void initOTAUpdate() {
   ArduinoOTA.setHostname(HOSTNAME);
   
   ArduinoOTA.onStart([]() {
+
+    // Make sure controller is not in use.
+    //irrigationController.initSequance(zone);
+
     String type;
+
     if (ArduinoOTA.getCommand() == U_FLASH) {
       type = "sketch";
     } else { // U_FS
@@ -251,16 +253,15 @@ void initOTAUpdate() {
     // NOTE: if updating FS this would be the place to unmount FS using FS.end()
     Serial.println("Start updating " + type);
   });
+
   ArduinoOTA.onEnd([]() {
-    
     Serial.println("\nEnd");
   });
+
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(500);
-    digitalWrite(LED_BUILTIN, HIGH);
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   });
+
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("Error[%u]: ", error);
     if (error == OTA_AUTH_ERROR) {
@@ -275,8 +276,10 @@ void initOTAUpdate() {
       Serial.println("End Failed");
     }
   });
+
   ArduinoOTA.begin();
-  Serial.println("Ready");
+  
+  Serial.println("OTA Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 }
@@ -285,15 +288,21 @@ void initController() {
    
 }
 
+
 IRAM_ATTR void MeterISR() { Meter->count(); }
 
+
+// Find and match token in static file for stats.
 String processor(const String& var) {
-  if(var == "VERSION"){
+  if(var == "VERSION") {
     return String(VERSION);
   }
-  else if(var == "BOOST_LEVEL"){
-    return String(irrigationController.getBoostLevel());
+  else if(var == "UPTIME") {
+    return String(round(millis() / 1000));
   }
+  // else if(var == "BOOST_LEVEL") {
+  //   return String(irrigationController.getBoostLevel());
+  // }
   else if (var == "CONTROLLER_STATUS") {
     return String(irrigationController.getStatus());
   }

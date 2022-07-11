@@ -3,6 +3,8 @@
 
 IrrigationController::IrrigationController(short polarityReverserPin, short relayBoosterPin) {
 
+  needBoost = false;
+
   _polarityReverserPin = polarityReverserPin;
   _relayBoosterPin = relayBoosterPin;
   
@@ -11,8 +13,6 @@ IrrigationController::IrrigationController(short polarityReverserPin, short rela
   
   digitalWrite(relayBoosterPin, LOW);
   digitalWrite(polarityReverserPin, LOW);
-
-
 
 }
 
@@ -57,14 +57,19 @@ void IrrigationController::stopZoneOFF(IrrigationZone* zone) {
   digitalWrite(zone->pin, LOW);
   setStatus(IDLE);
   zone->status = IDLE;
+  zone->timeout = 0;
   activeZone = NULL;
   jobPlan.action = NONE;
   trace("Stopping Zone OFF");
 }
 
-short IrrigationController::getBoostLevel() {
-  return map(analogRead(A0), 0, 660, 0, 100);
+void IrrigationController::boost() {
+  needBoost = true;
 }
+
+// short IrrigationController::getBoostLevel() {
+//   return map(analogRead(A0), 0, 660, 0, 100);
+// }
 
 bool IrrigationController::stopZone(IrrigationZone* zone) { 
   trace("Stop zone");
@@ -75,6 +80,7 @@ bool IrrigationController::stopZone(IrrigationZone* zone) {
       trace("Stop zone done");
     }
   }
+  zone->timeout = 0;
   return true;
 }
 bool IrrigationController::startZone(IrrigationZone* zone) {
@@ -93,6 +99,10 @@ bool IrrigationController::startZone(IrrigationZone* zone) {
   
   return true;
 }
+bool IrrigationController::startZone(IrrigationZone* zone, long timeout) {
+  zone->timeout = timeout;
+  return startZone(zone);
+}
 
 // NEED AN ARRAY OF POINTER
 void IrrigationController::initSequance(IrrigationZone* zone[8]) {
@@ -110,24 +120,45 @@ void IrrigationController::initSequance(IrrigationZone* zone[8]) {
 
 }
 
+void IrrigationController::timeoutCheck(IrrigationZone* zone[8]) {
+
+  for (int i = 0; i < 4; i++) {
+    
+    if ((zone[i]->timeout > 0) && (millis() >= zone[i]->timeout)) {
+      stopZone(zone[i]);
+      delay(2000); // Damper time
+    }
+
+  }
+
+}
+
+void IrrigationController::safetyCheck(IrrigationZone* zone[8]) {
+  if ((safetyKillTime > 0) && (millis() >= safetyKillTime)) {
+    initSequance(zone);
+  }
+}
+
 // This method should be called from the main thread LOOP method. It will manage all request in the pipeline.
 void IrrigationController::handleRequests() {
 
   if (getState() == ENABLE) {
 
-    // Handle auto-boosting when needed
+    // Handle boosting when asked
     //   only if controller is not starting or stopping a zone.
-    // START AUTO-BOOST
-    if (getBoostLevel() < 90) {
+    // START BOOST
+    
+    if (needBoost) {
       if ((getStatus() == IDLE) || (getStatus() == RUNNING)) {
           trace(__FILE__, INFO, "Booster is low charge, initiating load...");
           trace(__FILE__, TRACE, "Start boost charger");
           startBooster();
           setStatus(BOOSTING);
           actionTimeout = millis() + 5000;
+          needBoost = false;
       }
-    } 
-    
+    }
+      
     if (getStatus() == BOOSTING) {
       if (millis() >= actionTimeout) {
         trace(__FILE__, TRACE, "Stop boost charger");
@@ -136,6 +167,28 @@ void IrrigationController::handleRequests() {
         actionTimeout = 0;
       }
     }
+
+    // Handle auto-boosting when needed
+    //   only if controller is not starting or stopping a zone.
+    // START AUTO-BOOST
+    // if (getBoostLevel() < 90) {
+    //   if ((getStatus() == IDLE) || (getStatus() == RUNNING)) {
+    //       trace(__FILE__, INFO, "Booster is low charge, initiating load...");
+    //       trace(__FILE__, TRACE, "Start boost charger");
+    //       startBooster();
+    //       setStatus(BOOSTING);
+    //       actionTimeout = millis() + 5000;
+    //   }
+    // } 
+    
+    // if (getStatus() == BOOSTING) {
+    //   if (millis() >= actionTimeout) {
+    //     trace(__FILE__, TRACE, "Stop boost charger");
+    //     stopBooster();
+    //     setStatus(IDLE);
+    //     actionTimeout = 0;
+    //   }
+    // }
     // END AUTO-BOOST
 
     // We have somthing to do !!
@@ -162,17 +215,22 @@ void IrrigationController::handleRequests() {
           jobPlan.timeout = 0;
           //setStatus(IDLE);
           jobPlan.action = NONE;
+          safetyKillTime = millis() + safetyKillTimeOutMills;
         }
       }
+
       else if (getStatus() == STOPPING) {
         if (millis() >= jobPlan.timeout) {
           stopZoneOFF(jobPlan.zone);
           jobPlan.timeout = 0;
           //setStatus(IDLE);
           jobPlan.action = NONE;
+          safetyKillTime = 0;
         }
       }
     }
+
   }
+
 }
 

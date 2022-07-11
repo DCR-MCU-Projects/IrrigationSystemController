@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<webapi>
+
+	<information>
+		<title>Irrigation System Controller API</title>
+		<version>1.0</version>
+		<build>1</build>
+		<support>David Cuerrier david.cuerrier@bgmail.com</support>		
+		<returncodes>			
+			<return code="200">Depending on function called, see detail in each function help section below.</return>
+			<return code="201">The function may or may not return data, but this is a confirmation that the function has create something. Usually use when the request method is PUT.</return>
+			<return code="204">The function has successfully run but no data was return.</return>
+
+			<return code="401">Your token is expired, you must redo your login. Or a bad login information.</return>
+			<return code="403">You are logged in but do not have sufficient privileges to run this function.</return>
+			<return code="404">Depending on function called, see detail in each function help section below.</return>
+			<return code="406">The Accept type in the header is not supported by thie WebAPI.</return>
+			<return code="409">Some informations are missing or incorrect, X-SID header token or maybe the JSON object in the body part has some error. It can also result of a conflic of data, like if the data you want to PUT already exist!</return>
+			<return code="415">The Content-Type sent in the header is not supported by this WebAPI.</return>
+
+			<return code="501">The function is not implemented in that class.</return>			
+			<return code="503 ">Service is in maintenance or is overloaded for the moment.</return>
+		</returncodes>
+		<notes>
+<![CDATA[This REST api only accept application/json as a Content-Type and Accept type header. you MUST provide thoses tow header in order to exchange with this WebAPI.
+
+Content-Type: application/json
+Accept: application/json]]>
+		</notes>
+	</information>
+
+	<classes>
+		<class name="General" filename="class.general.php" />
+		<class name="IrrigationSystemControl" filename="class.irrigationsystemcontrol.php" />
+	</classes>
+
+	<functions>
+		
+		<!-- BEGIN General URI Functions -->
+		<group name="General API" description="Group of general API function, thoses function are usaully returning meta data of the API, version and informations.">
+			<function uri="/">
+				<name>Help and presentation</name>
+				<action method="GET" class="General" func="ShowVisualHomeScreen" enable="true">
+					<name>Show this help screen</name>
+					<description>Get a html representation of every function that you may use with this web api.</description>
+					<return code="200">Display the help table with all request possibles</return>				
+				</action>			
+			</function>		
+			<function uri="/info">
+				<name>RESTFull API Information</name>			
+				<action method="GET" class="General" func="GetAPIInfo" enable="true">
+					<name>Get API Information</name>
+					<description>Get information about RESTFull API. Version Name etc.</description>
+					<return code="200">Return a JSON object containing information.</return>	
+				</action>
+			</function>
+			<function uri="/version">
+				<name>RESTFull API Version</name>			
+				<action method="GET" class="General" func="GetAPIVersion" enable="true">
+					<name>Get The API Version</name>
+					<description>Get version and build of the RESTFull API.</description>
+					<return code="200">Return a JSON object containing information.</return>	
+				</action>
+			</function>
+		</group>
+		<!-- END General URI Functions -->
+
+		<!-- Controller Calls -->
+		<group name="ISC" description="Irrigation System Controller Functions">
+			
+			<function uri="/control">
+				<name>Get controller statistics</name>
+				<action method="GET" class="IrrigationSystemControl" func="getStats" enable="true">
+					<description>Get statistics from Irrigation Controller</description>
+					<return code="200"></return>
+				</action>
+			</function>
+
+			<function uri="/control/{zoneId}/{action}">
+				<name>Sort the message of an environment</name>
+				<parameter name="{zoneId}" type="integer">The zone you want to take action on</parameter>
+				<parameter name="{action}" type="string">The action to perform, stop, start</parameter>
+				<action method="POST" class="IrrigationSystemControl" func="performAction" enable="true">
+					<description>Perform an action on the specified zone ID</description>
+					<return code="200">Complet stats of the controller</return>
+				</action>
+			</function>			
+	
+		</group>
+		
+
+		
+	</functions>
+	
+</webapi>
