@@ -102,6 +102,9 @@
       bool              stopZone(IrrigationZone* zone);
 
       void              initSequance(IrrigationZone* zone[]);
+      
+      void              timeoutCheck(IrrigationZone* zone[]);
+      void              safetyCheck(IrrigationZone* zone[]);
 
       void              handleRequests();
   };

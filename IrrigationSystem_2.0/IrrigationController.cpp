@@ -100,7 +100,7 @@ bool IrrigationController::startZone(IrrigationZone* zone) {
   return true;
 }
 bool IrrigationController::startZone(IrrigationZone* zone, long timeout) {
-  zone->timeout = timeout;
+  zone->timeout = millis() + timeout;
   return startZone(zone);
 }
 

@@ -98,6 +98,7 @@ void loop() {
       irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
 
     irrigationController.handleRequests();
+    irrigationController.timeoutCheck(zone);
   }
 
 }
@@ -193,10 +194,18 @@ void initWebServer() {
 
     if (irrigationController.getStatus() == IDLE) {
       if (request->hasParam("id")) {
+
         short id = (short) atoi(request->getParam("id")->value().c_str());
-        irrigationController.startZone(zone[id]);
+        
+        if (request->hasParam("timeout")) {
+          short timeout = (short) atoi(request->getParam("timeout")->value().c_str());
+          irrigationController.startZone(zone[id], timeout * 1000);
+        } else
+          irrigationController.startZone(zone[id]);
+        
         //request->send(204);
         request->redirect("/stats");
+
       } else
         request->send(400, "application/json", "{\"status\": \"You need to specify a zone id.\"}");
     } else

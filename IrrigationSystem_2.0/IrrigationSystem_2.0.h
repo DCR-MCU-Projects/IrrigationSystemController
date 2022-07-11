@@ -62,5 +62,3 @@
   };
 
 #endif
-
-Opensource power for enterprise consuption
