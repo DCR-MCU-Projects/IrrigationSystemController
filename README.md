@@ -1,6 +1,7 @@
 # Irrigation System Controller
 ---
 
+```
 GET  /stats
 PUT  /ota-update
 POST /restart
@@ -9,3 +10,4 @@ PUT  /zone
 POST /zone/start
 POST /zone/stop
 GET  /flow
+```
