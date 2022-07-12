@@ -43,8 +43,14 @@
 
         pinMode(pin, OUTPUT);
         digitalWrite(pin, LOW);
-
       };
+
+      long getTimeLeft() {
+        if (timeout > 0)
+          return (timeout - millis()) / 1000;
+        else
+          return 0;
+      }
   };
 
   struct IrrigationJob {

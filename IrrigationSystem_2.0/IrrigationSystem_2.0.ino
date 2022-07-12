@@ -24,11 +24,12 @@ void setup() {
   initWiFi();
 
   Serial.println("Setting up OTA Update...");
+  // Serial.println(DHCP_OPTION_ROUTER);
   initOTAUpdate();
 
-  Serial.println("Setting up SPIFFS ...");
-  if(!SPIFFS.begin()){
-    Serial.println("An Error has occurred while mounting SPIFFS");
+  Serial.println("Setting up LittleFS ...");
+  if(!LittleFS.begin()){
+    Serial.println("An Error has occurred while mounting LittleFS");
     return;
   }
 
@@ -126,9 +127,52 @@ void initWiFi() {
   MDNS.addService("http", "tcp", 80);
 }
 
+
+void writeFile(const char * path, const char * message) {
+  Serial.printf("Writing file: %s\n", path);
+
+  File file = LittleFS.open(path, "w");
+  if (!file) {
+    Serial.println("Failed to open file for writing");
+    return;
+  }
+  if (file.print(message)) {
+    Serial.println("File written");
+  } else {
+    Serial.println("Write failed");
+  }
+  delay(2000); // Make sure the CREATE and LASTWRITE times are different
+  file.close();
+}
+
+String listDir(const char * dirname) {
+  
+  String x = "";
+
+  x += String("Listing directory: ");
+  x += (dirname);
+  x += String("\n");
+
+  Dir root = LittleFS.openDir(dirname);
+
+  while (root.next()) {
+    x += String(root.fileName());
+    x += String("\n");
+  }
+
+  x += String("\n");
+
+  return x;
+
+}
+
 void initWebServer() {
 
-  server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+
+  server.on("/stats", HTTP_GET, [](AsyncWebServerRequest *request){  
+    request->send(LittleFS, "/stats.json", String(), false, processor);
+  });
 
   server.onNotFound([](AsyncWebServerRequest *request){
     request->send(404, "text/plain", "Endpoint your are looking for does not exist.");
@@ -136,14 +180,9 @@ void initWebServer() {
 
   /* Enable Over The Air update mode */
   server.on("/ota-update", HTTP_PUT, [](AsyncWebServerRequest *request){
-    switchRemoteUpdate = true;
+    switchRemoteUpdate = true;    
     request->send(200, "application/json", "{\"status\": \"You may now update using OTA\"}");
   }).setAuthentication("user", "pass");
-
-  server.on("/stats", HTTP_GET, [](AsyncWebServerRequest *request){  
-
-    request->send(SPIFFS, "/stats.json", String(), false, processor);
-  });
 
   server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request){  
     request->send(200, "application/json", "{\"status\": \"Ok will do a restart in a momomomomomoment\"}");
@@ -238,7 +277,6 @@ void initWebServer() {
     
     request->send(200, "application/json", jsonString);
   });
-
     
   server.begin();
 }
@@ -247,9 +285,6 @@ void initOTAUpdate() {
   ArduinoOTA.setHostname(HOSTNAME);
   
   ArduinoOTA.onStart([]() {
-
-    // Make sure controller is not in use.
-    //irrigationController.initSequance(zone);
 
     String type;
 
@@ -261,14 +296,19 @@ void initOTAUpdate() {
 
     // NOTE: if updating FS this would be the place to unmount FS using FS.end()
     Serial.println("Start updating " + type);
+    OTAUpdateOnProgress = true;
+    
   });
 
   ArduinoOTA.onEnd([]() {
     Serial.println("\nEnd");
+    OTAUpdateOnProgress = false;
   });
 
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    unsigned int pct_progress = (progress / (total / 100));
+    Serial.printf("Progress: %u%%\r", pct_progress);
+    OTAUpdateProgress = pct_progress;
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
@@ -333,6 +373,8 @@ String processor(const String& var) {
     return String(zone[0]->state);
   else if (var == "ZONE_0_FLOW_LAST_MIN")
     return String(zone[0]->flow);
+  else if (var == "ZONE_0_TIMELEFT")
+    return String(zone[0]->getTimeLeft());
 
   else if (var == "ZONE_1_NAME")
     return String(zone[1]->name);
@@ -342,6 +384,8 @@ String processor(const String& var) {
     return String(zone[1]->state);
   else if (var == "ZONE_1_FLOW_LAST_MIN")
     return String(zone[1]->flow);
+  else if (var == "ZONE_1_TIMELEFT")
+    return String(zone[1]->getTimeLeft());
 
   else if (var == "ZONE_2_NAME")
     return String(zone[2]->name);
@@ -351,6 +395,8 @@ String processor(const String& var) {
     return String(zone[2]->state);
   else if (var == "ZONE_2_FLOW_LAST_MIN")
     return String(zone[2]->flow);
+  else if (var == "ZONE_2_TIMELEFT")
+    return String(zone[2]->getTimeLeft());
 
   else if (var == "ZONE_3_NAME")
     return String(zone[3]->name);
@@ -360,7 +406,13 @@ String processor(const String& var) {
     return String(zone[3]->state);
   else if (var == "ZONE_3_FLOW_LAST_MIN")
     return String(zone[3]->flow);
+  else if (var == "ZONE_3_TIMELEFT")
+    return String(zone[3]->getTimeLeft());
 
+  else if (var == "ISUPDATING")
+    return String(OTAUpdateOnProgress);
+  else if (var == "UPDATEPROGRESS")
+    return String(OTAUpdateProgress);
 
   return F("UNDEFINED");
 }
