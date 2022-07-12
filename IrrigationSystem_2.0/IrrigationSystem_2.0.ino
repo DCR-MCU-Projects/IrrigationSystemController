@@ -1,41 +1,37 @@
-// Need to disable firewall for OTA: sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 0
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ *                 IRRIGATION SYSTEM CONTROLLER
+ * 
+ *      #VERSION: 2.4.0
+ *      
+ * 
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "IrrigationSystem_2.0.h"
 
-IrrigationController irrigationController(PIN_REVERSER, PIN_BOOST);
-IrrigationZone* zone[8];
+IrrigationController    irrigationController(PIN_REVERSER, PIN_BOOST);
+IrrigationZone*         zone[8];
+FlowMeter               *Meter;
 
-FlowMeter *Meter;
-
-AsyncWebServer server(80);
-
-long latestMillis = 0;
+AsyncWebServer          server(EXPOSED_PORT);
+DNSServer               dnsServer;
 
 void setup() {
 
+  initBoard();
   initSerialCom(115200, 10000);
-
-  pinMode(A0, INPUT);
-
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, HIGH);
 
   Serial.println("Setting up WiFi ...");
   initWiFi();
 
   Serial.println("Setting up OTA Update...");
-  // Serial.println(DHCP_OPTION_ROUTER);
   initOTAUpdate();
 
   Serial.println("Setting up LittleFS ...");
-  if(!LittleFS.begin()){
-    Serial.println("An Error has occurred while mounting LittleFS");
-    return;
-  }
+  initLittleFS();
 
   Serial.println("Setting up FlowMeter ...");
   Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
-  
   
   Serial.println("Setting up Controller ...");
   irrigationController.setState(ENABLE);
@@ -53,12 +49,11 @@ void setup() {
   zone[2]->state = ENABLE;
   zone[3]->state = ENABLE;
 
-  
-
   // Upon reboot, reset all zone with a stop signal. This force the 
   // actuator to get its position and make sure all valve get glosed 
   // if the unit get restarted by power lost.
 
+  Serial.println("Initializing Controller ...");
   irrigationController.initSequance(zone);
 
   Serial.println("Setting up WebServer ...");
@@ -68,7 +63,7 @@ void setup() {
   
   Serial.print("\thttp://");
   Serial.print(WiFi.localIP().toString());
-  Serial.println("/v1/");
+  Serial.println("/");
 
   Serial.print("\thttp://");
   Serial.print(HOSTNAME);
@@ -77,31 +72,48 @@ void setup() {
 
 void loop() {
 
-  irrigationController.safetyCheck(zone);
-  
-  if (switchRemoteUpdate) {
+  if (setupMode) {
+    dnsServer.processNextRequest();
+  }
+  else if (switchRemoteUpdate) {
     digitalWrite(LED_BUILTIN, HIGH);
     delay(500);
     ArduinoOTA.handle();
     digitalWrite(LED_BUILTIN, LOW);
-  } else {
-
-    MDNS.update();
-    
-    delay(300);
-
+  } 
+  else {  // Check if WiFi is connected
     if (WiFi.status() != WL_CONNECTED)
       ESP.restart();
-
-    //Meter->tick(300);
-
-    if (irrigationController.getActiveZone() != NULL)
-      irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
-
-    irrigationController.handleRequests();
-    irrigationController.timeoutCheck(zone);
+    
+    MDNS.update();
   }
 
+  delay(300);
+
+  //Meter->tick(300);
+
+  if (irrigationController.getActiveZone() != NULL)
+    irrigationController.getActiveZone()->flow = Meter->getCurrentFlowrate();
+
+  irrigationController.safetyCheck(zone);
+  irrigationController.timeoutCheck(zone);
+  irrigationController.handleRequests();
+
+
+
+}
+
+void initBoard() {
+  pinMode(A0, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+}
+
+void initLittleFS() {
+  if(!LittleFS.begin()){
+    Serial.println("An Error has occurred while mounting LittleFS");
+    return;
+  }
 }
 
 void initSerialCom(long speed, long timeout) {
@@ -112,12 +124,20 @@ void initSerialCom(long speed, long timeout) {
 }
 
 void initWiFi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(STASSID, STAPSK);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
+
+  if (true) { // if there is no wifi config, or if btn is press then go in setupMode, captive portal.
+    WiFi.softAP("ISC");
+    dnsServer.start(53, "*", WiFi.softAPIP());
+    setupMode = true;
+  } 
+  else {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(STASSID, STAPSK);
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+      Serial.println("Connection Failed! Rebooting...");
+      delay(5000);
+      ESP.restart();
+    }
   }
 
   if (!MDNS.begin(HOSTNAME)) {
@@ -125,48 +145,15 @@ void initWiFi() {
   }
 
   MDNS.addService("http", "tcp", 80);
-}
-
-
-void writeFile(const char * path, const char * message) {
-  Serial.printf("Writing file: %s\n", path);
-
-  File file = LittleFS.open(path, "w");
-  if (!file) {
-    Serial.println("Failed to open file for writing");
-    return;
-  }
-  if (file.print(message)) {
-    Serial.println("File written");
-  } else {
-    Serial.println("Write failed");
-  }
-  delay(2000); // Make sure the CREATE and LASTWRITE times are different
-  file.close();
-}
-
-String listDir(const char * dirname) {
-  
-  String x = "";
-
-  x += String("Listing directory: ");
-  x += (dirname);
-  x += String("\n");
-
-  Dir root = LittleFS.openDir(dirname);
-
-  while (root.next()) {
-    x += String(root.fileName());
-    x += String("\n");
-  }
-
-  x += String("\n");
-
-  return x;
 
 }
+
 
 void initWebServer() {
+
+  // For captive portal, only then setuping the device
+  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER); //only when requested from AP
+  
 
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
