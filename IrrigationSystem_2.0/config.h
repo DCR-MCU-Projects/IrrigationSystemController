@@ -7,8 +7,6 @@
 
 // TODO: REMOVE STASSID AND PSK
 #define HOSTNAME        "irrigationcontroller"
-#define STASSID         "Burton"                       
-#define STAPSK          "Takeachance01"
 #define EXPOSED_PORT    80
 
 #ifdef ESP8266

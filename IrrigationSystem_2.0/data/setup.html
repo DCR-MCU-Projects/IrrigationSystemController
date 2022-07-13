@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+	<head>
+		<title>CaptivePortal</title>
+		<style type="text/css">
+			
+		</style>
+	</head>
+	<body>
+
+		<form action="/config" method="POST">
+			
+			<label for="WiFiSSID">
+				SSID: 
+			</label><br/>
+			<!--<input id="WiFISSID" type="text" name="WiFiSSID"/>-->
+			<select name="WiFiSSID">
+				%AVAIL_SSID%
+			</select>
+			<br/><br/>
+
+			<label for="WiFiPASS">
+				Password: 
+			</label><br/>
+			<input id="WiFiPASS" type="password" name="WiFiPASS"/><br/><br/>
+
+			<label for="restart">
+				Need Restart ?  
+			</label>
+			<input id="restart" type="checkbox" name="restart"/><br/><br/><br/>
+			<input type="submit" value="Save"/>
+		</form>
+
+	</body>
+</html>

@@ -14,22 +14,25 @@
   #include <math.h>
   #include "trace.h"
   #include <ESP8266WiFi.h>
+  #include <WiFiClient.h>
   #include <ESP8266mDNS.h>
   #include <ArduinoOTA.h>
   #include <FlowMeter.h>
 
   #include <Arduino_JSON.h>
+  #include <ArduinoJson.h>
   #include <LittleFS.h>
 
   #include <DNSServer.h>
   #include <ESPAsyncTCP.h>
   #include <ESPAsyncWebServer.h>
+  #include <AsyncJson.h>
 
   #include "IrrigationController.h"
 
   bool switchRemoteUpdate = false;
   bool OTAUpdateOnProgress = false;
-  bool setupMode = false;
+  bool needRestart = false;
 
   unsigned int OTAUpdateProgress = 0;
 
@@ -44,7 +47,21 @@
   void initBoard();
   void initLittleFS();
 
+  bool loadConfig();
+  bool saveConfig();
+
+
+  // Config
+
+  bool setupMode = true;
+  bool wifiConnected = false;
+  String WiFiSSID = "";
+  String WiFiPass = "";
+
+  void prinScanResult(int networksFound);
+
   String processor(const String& var);
+  String processorWiFi(const String& var);
   IRAM_ATTR void MeterISR();
 
   class CaptiveRequestHandler : public AsyncWebHandler {
@@ -58,14 +75,16 @@
     }
 
     void handleRequest(AsyncWebServerRequest *request) {
-      AsyncResponseStream *response = request->beginResponseStream("text/html");
-      response->print("<!DOCTYPE html><html><head><title>Captive Portal</title></head><body>");
-      response->print("<p>This is out captive portal front page.</p>");
-      response->printf("<p>You were trying to reach: http://%s%s</p>", request->host().c_str(), request->url().c_str());
-      response->printf("<p>Try opening <a href='http://%s'>this link</a> instead</p>", WiFi.softAPIP().toString().c_str());
-      response->print("</body></html>");
+
+      AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/setup.html", "text/html", false, processorWiFi);
+      response->addHeader("Cache-Control","no-cache, no-store, must-revalidate");
+      response->addHeader("Pragma","no-cache");
+      response->addHeader("Expires","-1");
+
       request->send(response);
     }
   };
+
+  
 
 #endif

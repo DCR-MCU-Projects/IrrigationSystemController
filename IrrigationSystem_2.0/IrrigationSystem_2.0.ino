@@ -21,18 +21,6 @@ void setup() {
   initBoard();
   initSerialCom(115200, 10000);
 
-  Serial.println("Setting up WiFi ...");
-  initWiFi();
-
-  Serial.println("Setting up OTA Update...");
-  initOTAUpdate();
-
-  Serial.println("Setting up LittleFS ...");
-  initLittleFS();
-
-  Serial.println("Setting up FlowMeter ...");
-  Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
-  
   Serial.println("Setting up Controller ...");
   irrigationController.setState(ENABLE);
   irrigationController.setStatus(IDLE);
@@ -48,6 +36,21 @@ void setup() {
   zone[1]->state = ENABLE;
   zone[2]->state = ENABLE;
   zone[3]->state = ENABLE;
+
+  Serial.println("Setting up LittleFS ...");
+  initLittleFS();
+
+  Serial.println(loadConfig());
+
+  Serial.println("Setting up WiFi ...");
+  initWiFi();
+
+  Serial.println("Setting up OTA Update...");
+  initOTAUpdate();
+
+  Serial.println("Setting up FlowMeter ...");
+  Meter = new FlowMeter(digitalPinToInterrupt(PIN_FLOW_SENSOR), FS300A, MeterISR, RISING);
+  
 
   // Upon reboot, reset all zone with a stop signal. This force the 
   // actuator to get its position and make sure all valve get glosed 
@@ -72,7 +75,11 @@ void setup() {
 
 void loop() {
 
-  if (setupMode) {
+
+  if (needRestart) {
+    restart();
+  }
+  else if (setupMode) {
     dnsServer.processNextRequest();
   }
   else if (switchRemoteUpdate) {
@@ -83,7 +90,7 @@ void loop() {
   } 
   else {  // Check if WiFi is connected
     if (WiFi.status() != WL_CONNECTED)
-      ESP.restart();
+      restart();
     
     MDNS.update();
   }
@@ -125,18 +132,46 @@ void initSerialCom(long speed, long timeout) {
 
 void initWiFi() {
 
-  if (true) { // if there is no wifi config, or if btn is press then go in setupMode, captive portal.
-    WiFi.softAP("ISC");
-    dnsServer.start(53, "*", WiFi.softAPIP());
-    setupMode = true;
+  if (setupMode) { // if there is no wifi config, or if btn is press then go in setupMode, captive portal.
+    
+    Serial.println("MODE: Initial Setup");
+    //WiFi.mode(WIFI_AP_STA);
+
+    WiFi.softAP("ISC", "12345678");
+
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(myIP);
+    
+    WiFi.scanNetworksAsync(NULL);
+
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    bool dnsStarted = dnsServer.start(53, "*", myIP);
+
+    if (!dnsStarted)
+      Serial.println("Error starting DNS!!");
+
   } 
   else {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(STASSID, STAPSK);
+    Serial.println("MODE: Normal");
+    //WiFi.mode(WIFI_STA);
+    WiFi.begin(WiFiSSID, WiFiPass);
     while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.println("Connection Failed! Rebooting...");
-      delay(5000);
-      ESP.restart();
+
+      switch (WiFi.waitForConnectResult()) {
+        case WL_NO_SSID_AVAIL:
+        case WL_WRONG_PASSWORD:
+          setupMode = true;
+          saveConfig();
+          delay(5000);
+          restart();
+        break;
+        default:
+          Serial.println("Connection Failed! Rebooting...");
+          delay(5000);
+          restart();
+      }
+
     }
   }
 
@@ -148,17 +183,73 @@ void initWiFi() {
 
 }
 
-
 void initWebServer() {
-
-  // For captive portal, only then setuping the device
-  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER); //only when requested from AP
-  
 
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
-  server.on("/stats", HTTP_GET, [](AsyncWebServerRequest *request){  
+  // For captive portal, only then setuping the device
+  server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {  
+    request->send(LittleFS, "/config.json", String(), false);
+  }).setFilter(ON_AP_FILTER);
+
+  server.on("/config", HTTP_POST, [](AsyncWebServerRequest *request) {  
+    
+    if (request->hasParam("WiFiSSID", true) && request->hasParam("WiFiPASS", true)) {
+      WiFiSSID = request->getParam("WiFiSSID", true)->value().c_str();
+      WiFiPass = request->getParam("WiFiPASS", true)->value().c_str();
+      setupMode = false;
+      saveConfig();
+
+      if (request->hasParam("restart", true))
+        needRestart = true;
+
+      request->send(201, "text/html", "ISC will now connect to your WiFi, you may get back to your primary network.");
+    }
+
+    request->send(409);
+
+  }).setFilter(ON_AP_FILTER);
+
+  server.on("/config", HTTP_PUT, [](AsyncWebServerRequest *request) {  
+    request->send(201);
+  },
+  [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){},
+  [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+    
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, data);
+
+    if (error) {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+      request->send(409, "application/json", "{\"status\" : \"deserializeJson() failed:\"}");
+    }
+
+    WiFiSSID = String(doc["wifiSSID"]);
+    WiFiPass = String(doc["wifiPASS"]);
+    setupMode = false;
+    saveConfig();
+
+    if (request->hasParam("restart")) {
+      needRestart = true;
+    }
+
+    request->send(201, "application/json", "{\"status\" : \"All right\"}");
+
+  });
+
+  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
+
+  // For captive portal, only then setuping the device END
+
+  server.on("/stats", HTTP_GET, [](AsyncWebServerRequest *request) {  
     request->send(LittleFS, "/stats.json", String(), false, processor);
+  });
+
+  server.on("/reset", HTTP_PUT, [](AsyncWebServerRequest *request) {  
+    resetConfig();
+    needRestart = true;
+    request->send(201);
   });
 
   server.onNotFound([](AsyncWebServerRequest *request){
@@ -166,24 +257,23 @@ void initWebServer() {
   });
 
   /* Enable Over The Air update mode */
-  server.on("/ota-update", HTTP_PUT, [](AsyncWebServerRequest *request){
+  server.on("/ota-update", HTTP_PUT, [](AsyncWebServerRequest *request) {
     switchRemoteUpdate = true;    
     request->send(200, "application/json", "{\"status\": \"You may now update using OTA\"}");
   }).setAuthentication("user", "pass");
 
-  server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request){  
+  server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {  
+    needRestart = true;
     request->send(200, "application/json", "{\"status\": \"Ok will do a restart in a momomomomomoment\"}");
-    delay(500);
-    ESP.restart();
   });
 
-  server.on("/boost", HTTP_POST, [](AsyncWebServerRequest *request){  
+  server.on("/boost", HTTP_POST, [](AsyncWebServerRequest *request) {  
     request->send(200, "application/json", "{\"status\": \"Ok boost\"}");
     irrigationController.boost();
   });
 
   /* Modify an existing zone */
-  server.on("/zone", HTTP_PUT, [](AsyncWebServerRequest *request){  
+  server.on("/zone", HTTP_PUT, [](AsyncWebServerRequest *request) {  
     
     if (request->hasParam("action")) {
       
@@ -197,15 +287,18 @@ void initWebServer() {
         if (action == "rename") {
           if (request->hasParam("name", true)) {
             zone[id]->name = request->getParam("name", true)->value().c_str();
+            saveConfig();
             request->send(204);
           }
           else
             request->send(404, "application/json", "{\"status\": \"Missing argument: name.\"}");
         } else if (action == "enable") {
             zone[id]->state = ENABLE;
+            saveConfig();
             request->send(204);
         } else if (action == "disable") {
             zone[id]->state = DISABLE;
+            saveConfig();
             request->send(204);
         } else
           request->send(404, "application/json", "{\"status\": \"The action you requested does not exist here.\"}");
@@ -402,4 +495,118 @@ String processor(const String& var) {
     return String(OTAUpdateProgress);
 
   return F("UNDEFINED");
+}
+
+String processorWiFi(const String& var) {
+
+  if(var == "AVAIL_SSID") {
+
+    String Page;
+
+    int n = WiFi.scanComplete();
+
+    if (n > 0) {
+      for (int i = 0; i < n; i++) {
+        Page += String("\r\n<option value=\"") + WiFi.SSID(i) + String("\">") + WiFi.SSID(i) + String(" ") + WiFi.RSSI(i) + String("</option>");
+      }
+    } else {
+      Page += F("<option>No WLAN found</option>");
+    }
+
+    return Page;
+  }
+
+  return F("<option>No SSID Found</option>");
+}
+
+void restart() {
+  Serial.end();
+  ESP.restart();
+}
+
+bool loadConfig() {
+
+  // WiFiSSID = "Burton";
+  // WiFiPass = "Takeachance01";
+  // setupMode = false;
+
+  // return true;
+
+  File configFile = LittleFS.open("/config.json", "r");
+  if (!configFile) {
+    Serial.println("Failed to open config file");
+    return false;
+  }
+
+  size_t size = configFile.size();
+  if (size > 1024) {
+    Serial.println("Config file size is too large");
+    return false;
+  }
+
+  // Allocate a buffer to store contents of the file.
+  std::unique_ptr<char[]> buf(new char[size]);
+
+  // We don't use String here because ArduinoJson library requires the input
+  // buffer to be mutable. If you don't use ArduinoJson, you may as well
+  // use configFile.readString instead.
+  configFile.readBytes(buf.get(), size);
+
+  StaticJsonDocument<200> doc;
+  auto error = deserializeJson(doc, buf.get());
+  if (error) {
+    Serial.println("Failed to parse config file");
+    return false;
+  }
+
+  WiFiSSID = String(doc["wifiSSID"]);
+  WiFiPass = String(doc["wifiPass"]);
+  setupMode = boolean(doc["setupMode"]);
+
+  zone[0]->name = String(doc["zone"][0]);
+  zone[1]->name = String(doc["zone"][1]);
+  zone[2]->name = String(doc["zone"][2]);
+  zone[3]->name = String(doc["zone"][3]);
+
+
+  return true;
+}
+
+bool saveConfig() {
+  StaticJsonDocument<200> doc;
+  
+  doc["wifiSSID"] = WiFiSSID;
+  doc["wifiPass"] = WiFiPass;
+  doc["setupMode"] = setupMode;
+
+  doc["zone"][0] = zone[0]->name;
+  doc["zone"][1] = zone[1]->name;
+  doc["zone"][2] = zone[2]->name;
+  doc["zone"][3] = zone[3]->name;
+
+  File configFile = LittleFS.open("/config.json", "w");
+  if (!configFile) {
+    Serial.println("Failed to open config file for writing");
+    return false;
+  }
+
+  serializeJson(doc, configFile);
+  return true;
+}
+
+bool resetConfig() {
+  StaticJsonDocument<200> doc;
+  
+  doc["wifiSSID"] = "none";
+  doc["wifiPass"] = "none";
+  doc["setupMode"] = "true";
+
+  File configFile = LittleFS.open("/config.json", "w");
+  if (!configFile) {
+    Serial.println("Failed to open config file for writing");
+    return false;
+  }
+
+  serializeJson(doc, configFile);
+  return true;
 }
